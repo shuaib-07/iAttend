@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="app/src/main/res/drawable/img_logo_icon.png" />
+  <img src="app/src/main/res/drawable/img_logo_icon.png" width="128" height="128" alt="iAttend Logo" />
 
   # iAttend
 
@@ -64,14 +64,19 @@ iAttend was built out of this exact frustration. It’s designed to handle dynam
 
 ---
 
-## 🎨 Design Inspirations
+## 🎨 Design Inspirations & Credits
 
-Special thanks to the open-source community and the following projects for UI and architectural inspiration:
+Special thanks to the open-source community and the following resources:
 
+**UI & Architectural Inspirations:**
 * [Cashiro](https://github.com/ritesh-kanwar/Cashiro) by ritesh-kanwar
 * [minus](https://github.com/isaacsa51/minus) by isaacsa51
 * [RvSystem-Monitor](https://github.com/Rve27/RvSystem-Monitor) by Rve27
 * [Attendo](https://github.com/jarvis1704/Attendo) by jarvis1704
+
+**Icons & Assets:**
+* Animated & static icons sourced from [Lordicon](https://lordicon.com/) and [useAnimations](https://useanimations.com/)
+* Avatars generated via [DiceBear](https://dicebear.com/)
 
 ---
 
