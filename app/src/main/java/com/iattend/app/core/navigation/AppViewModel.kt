@@ -7,20 +7,26 @@ import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.datastore.ThemeMode
 import com.iattend.app.core.notifications.AutoBackupScheduler
 import com.iattend.app.core.notifications.ClassReminderScheduler
+import com.iattend.app.core.updates.AppReleaseInfo
+import com.iattend.app.core.updates.ReleaseRepository
+import com.iattend.app.core.updates.UpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val reminderScheduler: ClassReminderScheduler,
-    private val autoBackupScheduler: AutoBackupScheduler
+    private val autoBackupScheduler: AutoBackupScheduler,
+    private val updateCheckScheduler: UpdateCheckScheduler,
+    private val releaseRepository: ReleaseRepository
 ) : ViewModel() {
     private val _onboardingComplete = MutableStateFlow<Boolean?>(null)
     val onboardingComplete: StateFlow<Boolean?> = _onboardingComplete.asStateFlow()
@@ -36,6 +42,9 @@ class AppViewModel @Inject constructor(
 
     private val _navBarStyle = MutableStateFlow(NavBarStyle.PILL)
     val navBarStyle: StateFlow<NavBarStyle> = _navBarStyle.asStateFlow()
+
+    private val _updateAvailableInfo = MutableStateFlow<AppReleaseInfo?>(null)
+    val updateAvailableInfo: StateFlow<AppReleaseInfo?> = _updateAvailableInfo.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -54,8 +63,33 @@ class AppViewModel @Inject constructor(
                 .collect { (enabled, frequency) -> autoBackupScheduler.reschedule(enabled, frequency) }
         }
         viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.autoCheckUpdates }
+                .distinctUntilChanged()
+                .collect { enabled -> updateCheckScheduler.reschedule(enabled) }
+        }
+        viewModelScope.launch {
             reminderScheduler.scheduleTodayReminders()
             reminderScheduler.scheduleMidnightRefresh()
         }
+        viewModelScope.launch {
+            checkUpdateOnLaunch()
+        }
+    }
+
+    private suspend fun checkUpdateOnLaunch() {
+        val settings = settingsRepository.settings.first()
+        if (settings.onboardingComplete && settings.autoCheckUpdates) {
+            val result = releaseRepository.checkForUpdates()
+            result.onSuccess { release ->
+                if (release.isUpdateAvailable) {
+                    _updateAvailableInfo.value = release
+                }
+            }
+        }
+    }
+
+    fun dismissUpdateModal() {
+        _updateAvailableInfo.value = null
     }
 }

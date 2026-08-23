@@ -23,12 +23,14 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -65,6 +67,7 @@ fun AboutScreen(
     val isChecking by viewModel.isCheckingForUpdates.collectAsState()
     val showWhatsNew by viewModel.showWhatsNew.collectAsState()
     val updateAvailableInfo by viewModel.updateAvailableInfo.collectAsState()
+    val autoCheckUpdates by viewModel.autoCheckUpdates.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collectLatest { event ->
@@ -172,12 +175,25 @@ fun AboutScreen(
                         }
                     },
                     trailing = { Icon(Icons.Filled.ChevronRight, contentDescription = null) },
-                    shape = ListItemPosition.Bottom.toShape(),
+                    shape = ListItemPosition.Middle.toShape(),
                     onClick = hapticClick {
                         if (!isChecking) {
                             viewModel.checkForUpdates()
                         }
                     }
+                )
+                ListItem(
+                    headline = { Text("Automatic update checks") },
+                    supporting = { Text("Check on app launch and daily in background") },
+                    leading = { Icon(Icons.Filled.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
+                    trailing = {
+                        Switch(
+                            checked = autoCheckUpdates,
+                            onCheckedChange = { viewModel.setAutoCheckUpdates(it) }
+                        )
+                    },
+                    shape = ListItemPosition.Bottom.toShape(),
+                    onClick = hapticClick { viewModel.setAutoCheckUpdates(!autoCheckUpdates) }
                 )
             }
 

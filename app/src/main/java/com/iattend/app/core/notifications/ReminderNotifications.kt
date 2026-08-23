@@ -21,6 +21,7 @@ import java.time.LocalDate
 
 const val REMINDER_CHANNEL_ID = "class_reminders"
 const val ASSESSMENT_REMINDER_CHANNEL_ID = "assessment_reminders"
+const val APP_UPDATES_CHANNEL_ID = "app_updates"
 const val EXTRA_OCCURRENCE_ID = "occurrence_id"
 const val EXTRA_ASSESSMENT_ID = "assessment_id"
 const val EXTRA_ACTION_STATUS = "action_status"
@@ -28,6 +29,7 @@ const val ACTION_MARK_STATUS = "com.iattend.app.action.MARK_STATUS"
 /** Offset added to the occurrence id so the post-class notification gets its own id, distinct
  * from the pre-class reminder's (which uses the bare occurrence id) - both can be showing at once. */
 const val CLASS_END_NOTIFICATION_ID_OFFSET = 2_000_000
+const val APP_UPDATE_NOTIFICATION_ID = 3_000_001
 
 fun canScheduleExactAlarmsFor(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
@@ -49,6 +51,13 @@ fun ensureReminderChannel(context: Context) {
             "Test & exam reminders",
             NotificationManager.IMPORTANCE_HIGH
         ).apply { description = "Reminds you before an upcoming test or exam, at the timing you choose" }
+    )
+    manager.createNotificationChannel(
+        NotificationChannel(
+            APP_UPDATES_CHANNEL_ID,
+            "App updates",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply { description = "Notifies you when a new release or update is available" }
     )
 }
 
@@ -134,6 +143,27 @@ fun showAssessmentReminderNotification(context: Context, assessment: Assessment,
         .build()
 
     NotificationManagerCompat.from(context).notify(REMINDER_CHANNEL_ID.hashCode() + assessment.id.toInt(), notification)
+}
+
+/** Posts an update notification when a newer release is found in the background. */
+fun showUpdateAvailableNotification(context: Context, tagName: String, downloadUrl: String) {
+    val openIntent = PendingIntent.getActivity(
+        context,
+        APP_UPDATE_NOTIFICATION_ID,
+        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(downloadUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val notification = NotificationCompat.Builder(context, APP_UPDATES_CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setContentTitle("iAttend Update Available ($tagName)")
+        .setContentText("A new version of iAttend is ready to download. Tap to install.")
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setAutoCancel(true)
+        .setContentIntent(openIntent)
+        .build()
+
+    NotificationManagerCompat.from(context).notify(APP_UPDATE_NOTIFICATION_ID, notification)
 }
 
 private fun actionPendingIntent(context: Context, occurrenceId: Long, status: String): PendingIntent {

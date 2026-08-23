@@ -37,6 +37,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.iattend.app.core.datastore.NavBarStyle
 import com.iattend.app.core.ui.BrandHeader
 import com.iattend.app.core.ui.modalsheet.ModalSheet
+import com.iattend.app.core.updates.UpdateAvailableModal
 import com.iattend.app.feature.notifications.NotificationSettingsSheetContent
 import com.iattend.app.ui.modifiers.BlurDirection
 import com.iattend.app.ui.modifiers.progressiveBlur
@@ -101,7 +102,9 @@ fun AppNavHost(startDestination: Any) {
     } ?: ""
 
     val hazeState = rememberHazeState()
-    val navBarStyle by hiltViewModel<AppViewModel>().navBarStyle.collectAsState()
+    val appViewModel = hiltViewModel<AppViewModel>()
+    val navBarStyle by appViewModel.navBarStyle.collectAsState()
+    val updateAvailableInfo by appViewModel.updateAvailableInfo.collectAsState()
     val scaffoldBackground = MaterialTheme.colorScheme.surfaceContainer
     val backdropBackground = MaterialTheme.colorScheme.background
     val backdrop = rememberLayerBackdrop {
@@ -269,5 +272,12 @@ fun AppNavHost(startDestination: Any) {
 
     ModalSheet(visible = showNotificationSheet, onVisibleChange = { showNotificationSheet = it }) {
         NotificationSettingsSheetContent(onDismiss = { showNotificationSheet = false })
+    }
+
+    updateAvailableInfo?.let { releaseInfo ->
+        UpdateAvailableModal(
+            releaseInfo = releaseInfo,
+            onDismiss = appViewModel::dismissUpdateModal
+        )
     }
 }

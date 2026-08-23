@@ -45,7 +45,8 @@ data class AppSettings(
     val autoBackupFrequency: BackupFrequency = BackupFrequency.WEEKLY,
     /** SAF persisted-permission tree URI. Null = write to the app-private external files dir instead. */
     val autoBackupFolderUri: String? = null,
-    val lastSeenVersion: String = ""
+    val lastSeenVersion: String = "",
+    val autoCheckUpdates: Boolean = true
 )
 
 @Singleton
@@ -68,6 +69,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         val AUTO_BACKUP_FOLDER_URI = stringPreferencesKey("auto_backup_folder_uri")
         val ACCENT_COLOR = stringPreferencesKey("accent_color")
         val LAST_SEEN_VERSION = stringPreferencesKey("last_seen_version")
+        val AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
     }
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
@@ -86,8 +88,13 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             autoBackupFrequency = prefs[Keys.AUTO_BACKUP_FREQUENCY]?.let(BackupFrequency::valueOf) ?: BackupFrequency.WEEKLY,
             autoBackupFolderUri = prefs[Keys.AUTO_BACKUP_FOLDER_URI],
             accentColor = prefs[Keys.ACCENT_COLOR] ?: "FOREST",
-            lastSeenVersion = prefs[Keys.LAST_SEEN_VERSION] ?: ""
+            lastSeenVersion = prefs[Keys.LAST_SEEN_VERSION] ?: "",
+            autoCheckUpdates = prefs[Keys.AUTO_CHECK_UPDATES] ?: true
         )
+    }
+
+    suspend fun setAutoCheckUpdates(enabled: Boolean) {
+        dataStore.edit { it[Keys.AUTO_CHECK_UPDATES] = enabled }
     }
 
     suspend fun setLastSeenVersion(version: String) {
@@ -180,6 +187,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             prefs[Keys.AUTO_BACKUP_ENABLED] = settings.autoBackupEnabled
             prefs[Keys.AUTO_BACKUP_FREQUENCY] = settings.autoBackupFrequency.name
             prefs[Keys.ACCENT_COLOR] = settings.accentColor
+            prefs[Keys.AUTO_CHECK_UPDATES] = settings.autoCheckUpdates
             // autoBackupFolderUri deliberately not restored - a SAF tree URI grant is device/user-specific
             // and won't resolve on a different device or after a reinstall; falls back to the app-private default.
         }

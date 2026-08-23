@@ -10,10 +10,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -42,6 +45,16 @@ class AboutViewModel @Inject constructor(
     val currentVersionName: String = releaseRepository.getCurrentVersionName()
 
     val builtInHighlights: List<FeatureHighlight> = releaseRepository.getBuiltInReleaseNotes()
+
+    val autoCheckUpdates: StateFlow<Boolean> = settingsRepository.settings
+        .map { it.autoCheckUpdates }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), true)
+
+    fun setAutoCheckUpdates(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoCheckUpdates(enabled)
+        }
+    }
 
     init {
         checkAutoWhatsNew()
