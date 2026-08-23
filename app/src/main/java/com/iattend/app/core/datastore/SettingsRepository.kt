@@ -44,7 +44,8 @@ data class AppSettings(
     val autoBackupEnabled: Boolean = false,
     val autoBackupFrequency: BackupFrequency = BackupFrequency.WEEKLY,
     /** SAF persisted-permission tree URI. Null = write to the app-private external files dir instead. */
-    val autoBackupFolderUri: String? = null
+    val autoBackupFolderUri: String? = null,
+    val lastSeenVersion: String = ""
 )
 
 @Singleton
@@ -66,6 +67,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         val AUTO_BACKUP_FREQUENCY = stringPreferencesKey("auto_backup_frequency")
         val AUTO_BACKUP_FOLDER_URI = stringPreferencesKey("auto_backup_folder_uri")
         val ACCENT_COLOR = stringPreferencesKey("accent_color")
+        val LAST_SEEN_VERSION = stringPreferencesKey("last_seen_version")
     }
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
@@ -83,8 +85,13 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             autoBackupEnabled = prefs[Keys.AUTO_BACKUP_ENABLED] ?: false,
             autoBackupFrequency = prefs[Keys.AUTO_BACKUP_FREQUENCY]?.let(BackupFrequency::valueOf) ?: BackupFrequency.WEEKLY,
             autoBackupFolderUri = prefs[Keys.AUTO_BACKUP_FOLDER_URI],
-            accentColor = prefs[Keys.ACCENT_COLOR] ?: "FOREST"
+            accentColor = prefs[Keys.ACCENT_COLOR] ?: "FOREST",
+            lastSeenVersion = prefs[Keys.LAST_SEEN_VERSION] ?: ""
         )
+    }
+
+    suspend fun setLastSeenVersion(version: String) {
+        dataStore.edit { it[Keys.LAST_SEEN_VERSION] = version }
     }
 
     suspend fun setOnboardingComplete(complete: Boolean) {

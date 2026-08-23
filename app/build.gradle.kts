@@ -39,7 +39,7 @@ android {
             if (keystorePropertiesFile.exists()) {
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
                 storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyAlias = keystoreProperties.getProperty("keyAlias", "iAttend")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
