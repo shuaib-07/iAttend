@@ -86,6 +86,30 @@ fun OnboardingScreen(
         }
     }
 
+    if (state.showTemplateNamePrompt) {
+        SpringAlertDialog(
+            onDismissRequest = {},
+            title = { Text("Template Imported!") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Your timetable and subjects have been imported. What should we call you?")
+                    OutlinedTextField(
+                        value = state.templateNameInput,
+                        onValueChange = viewModel::onTemplateNameInputChange,
+                        label = { Text("Your name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = viewModel::submitTemplateNameAndFinish) {
+                    Text("Continue")
+                }
+            }
+        )
+    }
+
     if (!state.hasChosenStart) {
         StartChoiceScreen(
             onStartFresh = hapticClick(viewModel::chooseStartFresh),

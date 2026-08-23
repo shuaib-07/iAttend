@@ -83,7 +83,7 @@ class ExportImportRepository @Inject constructor(
     private val occurrenceRepository: OccurrenceRepository,
     private val assessmentDao: AssessmentDao
 ) {
-    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
 
     suspend fun export(): String = json.encodeToString(
         ExportPayload(
@@ -213,13 +213,23 @@ class ExportImportRepository @Inject constructor(
         occurrenceRepository.regenerateUnmarkedWindow()
     }
 
-    suspend fun importAuto(jsonText: String) {
+    suspend fun importAuto(jsonText: String): Boolean {
         val isTemplate = try {
-            val el = json.parseToJsonElement(jsonText)
-            el.jsonObject["exportType"]?.jsonPrimitive?.content == "TEMPLATE"
+            val el = json.parseToJsonElement(jsonText).jsonObject
+            val exportType = el["exportType"]?.jsonPrimitive?.content
+            val hasTemplateVersion = el.containsKey("templateVersion")
+            val hasFullBackupFields = el.containsKey("classOccurrences") || el.containsKey("settings") || el.containsKey("profile")
+            exportType == "TEMPLATE" || hasTemplateVersion || !hasFullBackupFields
         } catch (_: Exception) {
-            jsonText.contains("\"exportType\"") && jsonText.contains("TEMPLATE")
+            jsonText.contains("templateVersion") || !jsonText.contains("classOccurrences")
         }
-        if (isTemplate) importTemplate(jsonText) else import(jsonText)
+
+        return if (isTemplate) {
+            importTemplate(jsonText)
+            true
+        } else {
+            import(jsonText)
+            false
+        }
     }
 }

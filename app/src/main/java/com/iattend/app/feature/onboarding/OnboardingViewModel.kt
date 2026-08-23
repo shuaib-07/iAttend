@@ -24,6 +24,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -51,7 +52,9 @@ data class OnboardingState(
     val hasEndDate: Boolean = false,
     val endDate: LocalDate = LocalDate.now(),
     val holidayDays: Set<DayOfWeek> = setOf(DayOfWeek.SUNDAY),
-    val requiredPercentage: String = "75"
+    val requiredPercentage: String = "75",
+    val showTemplateNamePrompt: Boolean = false,
+    val templateNameInput: String = ""
 )
 
 sealed class OnboardingFinishEvent {
@@ -90,12 +93,46 @@ class OnboardingViewModel @Inject constructor(
             try {
                 val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
                     ?: return@launch
-                exportImportRepository.import(text)
-                settingsRepository.setOnboardingComplete(true)
-                _finishEvents.send(OnboardingFinishEvent.ToHome)
+                val isTemplate = exportImportRepository.importAuto(text)
+                if (isTemplate) {
+                    val profile = profileRepository.profile.first()
+                    if (profile.name.isBlank()) {
+                        _state.value = _state.value.copy(showTemplateNamePrompt = true)
+                    } else {
+                        finishImportedTemplate()
+                    }
+                } else {
+                    settingsRepository.setOnboardingComplete(true)
+                    _finishEvents.send(OnboardingFinishEvent.ToHome)
+                }
             } catch (e: Exception) {
                 _message.value = "Import failed: ${e.message}"
             }
+        }
+    }
+
+    fun onTemplateNameInputChange(name: String) {
+        _state.value = _state.value.copy(templateNameInput = name)
+    }
+
+    fun submitTemplateNameAndFinish() {
+        viewModelScope.launch {
+            val name = _state.value.templateNameInput.trim()
+            if (name.isNotBlank()) {
+                profileRepository.setName(name)
+            }
+            _state.value = _state.value.copy(showTemplateNamePrompt = false)
+            finishImportedTemplate()
+        }
+    }
+
+    private suspend fun finishImportedTemplate() {
+        settingsRepository.setOnboardingComplete(true)
+        val latestVersion = timetableVersionDao.getAllOnce().maxByOrNull { it.effectiveFrom }
+        if (latestVersion != null) {
+            _finishEvents.send(OnboardingFinishEvent.ToBackdatedFill(latestVersion.id))
+        } else {
+            _finishEvents.send(OnboardingFinishEvent.ToHome)
         }
     }
 

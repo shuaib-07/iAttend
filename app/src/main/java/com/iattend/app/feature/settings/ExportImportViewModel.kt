@@ -84,15 +84,10 @@ class ExportImportViewModel @Inject constructor(
             _message.value = try {
                 val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
                     ?: return@launch
-                // auto-detect template vs full
-                val isTemplate = try {
-                    text.contains("\"exportType\"") && text.contains("TEMPLATE")
-                } catch (_: Exception) { false }
-                if (isTemplate) {
-                    exportImportRepository.importAuto(text)
+                val wasTemplate = exportImportRepository.importAuto(text)
+                if (wasTemplate) {
                     "Template imported. Attendance regenerated as unmarked."
                 } else {
-                    exportImportRepository.import(text)
                     "Data restored."
                 }
             } catch (e: Exception) {
