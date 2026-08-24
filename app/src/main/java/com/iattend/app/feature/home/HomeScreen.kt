@@ -30,6 +30,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.ProgressRing
 
 @Composable
@@ -38,6 +40,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val tutorialSubjectId = LocalTutorialController.current?.tutorialSubjectId
 
     val listState = rememberLazyListState()
     val collapseThresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
@@ -67,7 +70,8 @@ fun HomeScreen(
                 points = state.attendanceTrend,
                 thisMonthPercent = state.thisMonthPercent,
                 thisSemesterPercent = state.thisSemesterPercent,
-                currentPercent = state.overallPercentage
+                currentPercent = state.overallPercentage,
+                modifier = Modifier.tutorialTarget("attendance_chart")
             )
 
             Text(
@@ -79,7 +83,10 @@ fun HomeScreen(
         }
 
         items(state.subjects, key = { it.subject.id }) { summary ->
-            SubjectSummaryCard(summary, onClick = { onSubjectClick(summary.subject.id) }, modifier = Modifier.animateItem())
+            val cardModifier = Modifier.animateItem().let {
+                if (summary.subject.id == tutorialSubjectId) it.tutorialTarget("subject_summary_card") else it
+            }
+            SubjectSummaryCard(summary, onClick = { onSubjectClick(summary.subject.id) }, modifier = cardModifier)
         }
     }
 }

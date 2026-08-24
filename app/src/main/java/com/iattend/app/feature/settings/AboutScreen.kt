@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +50,7 @@ import com.iattend.app.R
 import com.iattend.app.core.AppLinks
 import com.iattend.app.core.ui.ListItem
 import com.iattend.app.core.ui.ListItemPosition
+import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.hapticClick
 import com.iattend.app.core.ui.toShape
@@ -194,6 +196,18 @@ fun AboutScreen(
                     },
                     shape = ListItemPosition.Bottom.toShape(),
                     onClick = hapticClick { viewModel.setAutoCheckUpdates(!autoCheckUpdates) }
+                )
+            }
+
+            // Replay tutorial
+            LocalTutorialController.current?.let { tutorialController ->
+                ListItem(
+                    headline = { Text("Replay tutorial") },
+                    supporting = { Text("Walk through the guided tour again") },
+                    leading = { Icon(Icons.Filled.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    trailing = { Icon(Icons.Filled.ChevronRight, contentDescription = null) },
+                    shape = ListItemPosition.Single.toShape(),
+                    onClick = hapticClick { tutorialController.restart(); onBack() }
                 )
             }
 

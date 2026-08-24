@@ -46,7 +46,9 @@ data class AppSettings(
     /** SAF persisted-permission tree URI. Null = write to the app-private external files dir instead. */
     val autoBackupFolderUri: String? = null,
     val lastSeenVersion: String = "",
-    val autoCheckUpdates: Boolean = true
+    val autoCheckUpdates: Boolean = true,
+    /** -1 = not started, 0..TUTORIAL_STEP_COUNT-1 = in progress, TUTORIAL_STEP_COUNT = done. */
+    val tutorialStep: Int = -1
 )
 
 @Singleton
@@ -70,6 +72,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         val ACCENT_COLOR = stringPreferencesKey("accent_color")
         val LAST_SEEN_VERSION = stringPreferencesKey("last_seen_version")
         val AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
+        val TUTORIAL_STEP = androidx.datastore.preferences.core.intPreferencesKey("tutorial_step")
     }
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
@@ -89,8 +92,13 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             autoBackupFolderUri = prefs[Keys.AUTO_BACKUP_FOLDER_URI],
             accentColor = prefs[Keys.ACCENT_COLOR] ?: "FOREST",
             lastSeenVersion = prefs[Keys.LAST_SEEN_VERSION] ?: "",
-            autoCheckUpdates = prefs[Keys.AUTO_CHECK_UPDATES] ?: true
+            autoCheckUpdates = prefs[Keys.AUTO_CHECK_UPDATES] ?: true,
+            tutorialStep = prefs[Keys.TUTORIAL_STEP] ?: -1
         )
+    }
+
+    suspend fun setTutorialStep(step: Int) {
+        dataStore.edit { it[Keys.TUTORIAL_STEP] = step }
     }
 
     suspend fun setAutoCheckUpdates(enabled: Boolean) {

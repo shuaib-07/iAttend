@@ -111,23 +111,23 @@ class ReleaseRepository @Inject constructor(
         return listOf(
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Timetable & Attendance System",
-                description = "Track subject attendance percentages, manage timetable slots, and predict missed classes."
+                title = "Interactive Live Tour (21 Steps)",
+                description = "Learn how to use iAttend with a live spotlight tour directly on the real screens."
             ),
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Release Notes & Auto Updates",
-                description = "Stay up to date with instant release notifications and clean What's New modal previews."
+                title = "Onboarding Avatar Picker",
+                description = "Choose your favorite avatar or upload a custom image directly during onboarding."
             ),
             FeatureHighlight(
-                category = "IMPROVEMENT",
-                title = "Developer Support & Buy Chai",
-                description = "Fresh modern UI with animated QR container and quick social links."
+                category = "NEW FEATURE",
+                title = "Data Reset (Danger Zone)",
+                description = "Easily reset academic data for a fresh semester or perform a full app wipe in Settings."
             ),
             FeatureHighlight(
-                category = "IMPROVEMENT",
-                title = "Material 3 Fluid UI",
-                description = "Modern dark/light themes, squircle icons, backdrop blurs, and customizable accent colors."
+                category = "BUG FIX",
+                title = "Stability & One UI Fixes",
+                description = "Fixed Insights 0% bar crash, Samsung alarm crash risk, One UI settings scroll, and added CrashReporter."
             )
         )
     }

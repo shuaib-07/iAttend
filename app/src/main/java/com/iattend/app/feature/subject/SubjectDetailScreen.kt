@@ -39,6 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.OccurrenceStatus
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.TutorialSignal
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.ProgressRing
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.SpringAlertDialog
@@ -58,6 +61,7 @@ fun SubjectDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val tutorialController = LocalTutorialController.current
 
     LaunchedEffect(Unit) { viewModel.deleted.collect { onBack() } }
 
@@ -132,11 +136,15 @@ fun SubjectDetailScreen(
                 }
             } else {
                 items(state.history, key = { it.id }) { occurrence ->
+                    val isFirst = occurrence.id == state.history.first().id
                     HistoryRow(
                         occurrence,
-                        onClick = { viewModel.cycleStatus(occurrence) },
+                        onClick = {
+                            viewModel.cycleStatus(occurrence)
+                            if (isFirst) tutorialController?.reportSignal(TutorialSignal.HISTORY_STATUS_CYCLED)
+                        },
                         onSetCancelReason = { reason -> viewModel.setCancelReason(occurrence, reason) },
-                        modifier = Modifier.animateItem()
+                        modifier = Modifier.animateItem().let { if (isFirst) it.tutorialTarget("history_row") else it }
                     )
                 }
             }

@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.TimetableVersion
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.formatDateWithLong
@@ -65,7 +66,7 @@ fun TimetableVersionListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = hapticClick(onAddVersion)) { Icon(Icons.Default.Add, contentDescription = "Add timetable version") }
+            FloatingActionButton(onClick = hapticClick(onAddVersion), modifier = Modifier.tutorialTarget("add_version_fab")) { Icon(Icons.Default.Add, contentDescription = "Add timetable version") }
         }
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {

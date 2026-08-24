@@ -14,12 +14,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.TutorialController
+import com.iattend.app.core.tutorial.TutorialHost
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -103,6 +107,7 @@ fun AppNavHost(startDestination: Any) {
 
     val hazeState = rememberHazeState()
     val appViewModel = hiltViewModel<AppViewModel>()
+    val tutorialController = hiltViewModel<TutorialController>()
     val navBarStyle by appViewModel.navBarStyle.collectAsState()
     val updateAvailableInfo by appViewModel.updateAvailableInfo.collectAsState()
     val scaffoldBackground = MaterialTheme.colorScheme.surfaceContainer
@@ -124,6 +129,7 @@ fun AppNavHost(startDestination: Any) {
     var headerHeightPx by remember { mutableStateOf(0) }
     val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
 
+    CompositionLocalProvider(LocalTutorialController provides tutorialController) {
     Box(modifier = Modifier.fillMaxSize().background(scaffoldBackground)) {
         Box(
             modifier = Modifier
@@ -279,5 +285,8 @@ fun AppNavHost(startDestination: Any) {
             releaseInfo = releaseInfo,
             onDismiss = appViewModel::dismissUpdateModal
         )
+    }
+
+    TutorialHost(navController)
     }
 }

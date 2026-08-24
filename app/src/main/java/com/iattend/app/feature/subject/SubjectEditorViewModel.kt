@@ -103,9 +103,9 @@ class SubjectEditorViewModel @Inject constructor(
                 trackingEndDateOverride = if (s.totalMode == TotalMode.COMPUTED) s.trackingEndDateOverride else null,
                 reminderOffsetsOverride = s.reminderOffsetsOverride
             )
-            if (isNew) subjectDao.insert(subject) else subjectDao.update(subject)
+            val savedId = if (isNew) subjectDao.insert(subject) else { subjectDao.update(subject); subject.id }
             occurrenceRepository.regenerateUnmarkedWindow()
-            _state.value = _state.value.copy(saved = true)
+            _state.value = _state.value.copy(saved = true, subjectId = savedId)
         }
     }
 }

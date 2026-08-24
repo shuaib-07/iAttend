@@ -36,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.ClassType
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.TutorialSignal
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.DatePickerField
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
@@ -56,6 +59,7 @@ fun ExtraClassesScreen(
     val upcoming by viewModel.upcomingExtras.collectAsState()
     val isDirty by viewModel.isDirty.collectAsState()
     val guardedBack = rememberUnsavedChangesGuard(isDirty = isDirty, onConfirmedBack = onBack)
+    val tutorialController = LocalTutorialController.current
 
     Scaffold(
         topBar = {
@@ -69,7 +73,7 @@ fun ExtraClassesScreen(
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             item {
-                Column {
+                Column(modifier = Modifier.tutorialTarget("extra_class_form")) {
                     DatePickerField("Date", form.date, viewModel::onDateChange, Modifier.fillMaxWidth())
                     SubjectChipRow(subjects, form.subjectId, viewModel::onSubjectChange, Modifier.fillMaxWidth().padding(top = 12.dp))
                     Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -92,7 +96,10 @@ fun ExtraClassesScreen(
                         }
                     }
                     Button(
-                        onClick = hapticClick(viewModel::schedule),
+                        onClick = hapticClick {
+                            viewModel.schedule()
+                            tutorialController?.reportSignal(TutorialSignal.EXTRA_CLASS_SAVED)
+                        },
                         enabled = form.subjectId != null,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                     ) { Text(if (form.editingOccurrenceId != null) "Update Extra Class" else "Schedule Extra Class") }

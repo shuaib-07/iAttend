@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.TotalMode
 import com.iattend.app.core.notifications.ReminderOffset
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.TutorialSignal
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.DatePickerField
 import com.iattend.app.core.ui.ReminderOffsetPicker
 import com.iattend.app.core.ui.SquircleIconButton
@@ -51,9 +54,16 @@ fun SubjectEditorScreen(
     val state by viewModel.state.collectAsState()
     val isDirty by viewModel.isDirty.collectAsState()
     val guardedBack = rememberUnsavedChangesGuard(isDirty = isDirty, onConfirmedBack = onBack)
+    val tutorialController = LocalTutorialController.current
 
     LaunchedEffect(state.saved) {
-        if (state.saved) onBack()
+        if (state.saved) {
+            tutorialController?.let {
+                it.setTutorialSubjectId(state.subjectId)
+                it.reportSignal(TutorialSignal.SUBJECT_SAVED)
+            }
+            onBack()
+        }
     }
 
     Scaffold(
@@ -74,12 +84,12 @@ fun SubjectEditorScreen(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
                 label = { Text("Subject name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().tutorialTarget("subject_name_field")
             )
             OutlinedTextField(
                 value = state.code,
                 onValueChange = viewModel::onCodeChange,
-                label = { Text("Code") },
+                label = { Text("Code (optional)") },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
@@ -104,10 +114,11 @@ fun SubjectEditorScreen(
                 value = state.requiredPercentageOverride,
                 onValueChange = viewModel::onRequiredOverrideChange,
                 label = { Text("Required % override (optional)") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().tutorialTarget("required_pct_override_field")
             )
 
             Text("Total classes")
+            Column(modifier = Modifier.tutorialTarget("total_mode_radios")) {
             TotalMode.entries.forEach { mode ->
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { viewModel.onTotalModeChange(mode) },
@@ -122,6 +133,7 @@ fun SubjectEditorScreen(
                         }
                     )
                 }
+            }
             }
             if (state.totalMode == TotalMode.KNOWN) {
                 OutlinedTextField(
@@ -161,7 +173,10 @@ fun SubjectEditorScreen(
                 }
             }
 
-            Button(onClick = hapticClick(viewModel::save), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = hapticClick(viewModel::save),
+                modifier = Modifier.fillMaxWidth().tutorialTarget("subject_save_button")
+            ) {
                 Text("Save")
             }
         }

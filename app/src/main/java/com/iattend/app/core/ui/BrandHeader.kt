@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.iattend.app.core.tutorial.tutorialTarget
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -103,7 +104,7 @@ fun BrandHeader(
             },
             actions = {
                 if (onNotificationClick != null) {
-                    IconButton(onClick = onNotificationClick) {
+                    IconButton(onClick = onNotificationClick, modifier = Modifier.tutorialTarget("notification_bell")) {
                         Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                     }
                 }
@@ -141,7 +142,7 @@ fun BrandHeader(
         },
         actions = {
             if (onNotificationClick != null) {
-                IconButton(onClick = onNotificationClick) {
+                IconButton(onClick = onNotificationClick, modifier = Modifier.tutorialTarget("notification_bell")) {
                     Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                 }
             }

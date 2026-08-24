@@ -4,6 +4,7 @@ import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.unit.Dp
@@ -45,6 +46,11 @@ class SquircleShape(
         bottomStart: Float,
         layoutDirection: LayoutDirection
     ): Outline {
+        // A 0-width/height rect (e.g. an attendance bar at exactly 0%) has no edge direction to
+        // round - androidx.graphics.shapes throws IllegalArgumentException computing it. Fall
+        // back to a plain rect outline for the degenerate case instead of crashing.
+        if (size.width <= 0f || size.height <= 0f) return Outline.Rectangle(size.toRect())
+
         val maxRadius = minOf(size.width, size.height) / 2f
         fun rounding(radius: Float) = CornerRounding(radius.coerceAtMost(maxRadius), SQUIRCLE_SMOOTHING)
 

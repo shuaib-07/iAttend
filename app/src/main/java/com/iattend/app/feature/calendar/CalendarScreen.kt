@@ -46,6 +46,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.TutorialSignal
+import com.iattend.app.core.tutorial.tutorialTarget
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -284,8 +287,11 @@ private fun TimelineRow(
     val occurrence = row.occurrence
     val subject = row.subject
     val subjectColor = subject?.let { Color(it.colorArgb) } ?: MaterialTheme.colorScheme.primary
+    val tutorialController = LocalTutorialController.current
 
-    Row(modifier = modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(bottom = 16.dp).tutorialTarget("mark_chip")
+    ) {
         Column(modifier = Modifier.width(52.dp)) {
             occurrence.startTime?.let {
                 Text(formatTime(it), style = MaterialTheme.typography.labelSmall)
@@ -366,9 +372,13 @@ private fun TimelineRow(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                MarkChip("Cancel", occurrence.status == OccurrenceStatus.CANCELLED, isPast, Modifier.weight(1f)) { onMark(OccurrenceStatus.CANCELLED) }
-                MarkChip("Absent", occurrence.status == OccurrenceStatus.ABSENT, isPast, Modifier.weight(1f)) { onMark(OccurrenceStatus.ABSENT) }
-                MarkChip("Present", occurrence.status == OccurrenceStatus.PRESENT, isPast, Modifier.weight(1f)) { onMark(OccurrenceStatus.PRESENT) }
+                val markAndReport: (OccurrenceStatus) -> Unit = { status ->
+                    onMark(status)
+                    tutorialController?.reportSignal(TutorialSignal.OCCURRENCE_MARKED)
+                }
+                MarkChip("Cancel", occurrence.status == OccurrenceStatus.CANCELLED, isPast, Modifier.weight(1f)) { markAndReport(OccurrenceStatus.CANCELLED) }
+                MarkChip("Absent", occurrence.status == OccurrenceStatus.ABSENT, isPast, Modifier.weight(1f)) { markAndReport(OccurrenceStatus.ABSENT) }
+                MarkChip("Present", occurrence.status == OccurrenceStatus.PRESENT, isPast, Modifier.weight(1f)) { markAndReport(OccurrenceStatus.PRESENT) }
             }
             if (occurrence.status == OccurrenceStatus.CANCELLED) {
                 var reason by remember(occurrence.id) { mutableStateOf(occurrence.cancelReason ?: "") }

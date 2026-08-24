@@ -53,6 +53,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.ClassType
+import com.iattend.app.core.tutorial.LocalTutorialController
+import com.iattend.app.core.tutorial.TutorialSignal
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.DatePickerField
 import com.iattend.app.core.ui.RoomComboBox
 import com.iattend.app.core.ui.SpringAlertDialog
@@ -87,12 +90,14 @@ fun TimetableVersionEditorScreen(
     val context = LocalContext.current
     val viewModelDirty by viewModel.isDirty.collectAsState()
     val guardedBack = rememberUnsavedChangesGuard(isDirty = viewModelDirty || formTouched, onConfirmedBack = onBack)
+    val tutorialController = LocalTutorialController.current
 
     LaunchedEffect(state.subjects) {
         if (selectedSubjectId == null) selectedSubjectId = state.subjects.firstOrNull()?.id
     }
     LaunchedEffect(Unit) {
         viewModel.navEvents.collect { event ->
+            tutorialController?.reportSignal(TutorialSignal.TIMETABLE_SAVED)
             when (event) {
                 is EditorNavEvent.Back -> onBack()
                 is EditorNavEvent.ToBackdatedFill -> onBackdatedFill(event.versionId)
@@ -146,7 +151,7 @@ fun TimetableVersionEditorScreen(
             ) {
                 Text("Slots", style = MaterialTheme.typography.titleMedium)
                 val daySlotCount = state.slots.count { it.dayOfWeek == selectedDay }
-                OutlinedButton(onClick = { showSlotsSheet = true }) { Text("View slots ($daySlotCount)") }
+                OutlinedButton(onClick = { showSlotsSheet = true }, modifier = Modifier.tutorialTarget("view_slots_button")) { Text("View slots ($daySlotCount)") }
             }
 
             LazyRow(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -169,7 +174,7 @@ fun TimetableVersionEditorScreen(
             }
 
             Card(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp).tutorialTarget("slot_form"),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -226,6 +231,7 @@ fun TimetableVersionEditorScreen(
                                     viewModel.addSlot(it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType)
                                     startTime = endTime
                                 }
+                                tutorialController?.reportSignal(TutorialSignal.SLOT_SAVED)
                                 room = ""
                                 classCount = "1"
                                 classType = ClassType.LECTURE
@@ -239,7 +245,10 @@ fun TimetableVersionEditorScreen(
                 }
             }
 
-            Button(onClick = hapticClick(viewModel::save), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+            Button(
+                onClick = hapticClick(viewModel::save),
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp).tutorialTarget("save_timetable_button")
+            ) {
                 Text("Save timetable")
             }
         }

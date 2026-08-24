@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.hapticClick
 
 @Composable
@@ -49,9 +50,9 @@ fun ScheduleManagerScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
-        ManagerTile(Icons.Default.Group, "Subjects", "Add, edit, and remove subjects", onSubjects)
+        ManagerTile(Icons.Default.Group, "Subjects", "Add, edit, and remove subjects", onSubjects, Modifier.tutorialTarget("subjects_tile"))
         ManagerTile(Icons.Default.EventRepeat, "Recurring Holidays", "Set standard off-days (e.g. Sundays)", onRecurringHolidays)
-        ManagerTile(Icons.Default.Schedule, "Manage Timetable", "Edit slots and versions", onManageTimetable)
+        ManagerTile(Icons.Default.Schedule, "Manage Timetable", "Edit slots and versions", onManageTimetable, Modifier.tutorialTarget("manage_timetable_tile"))
         ManagerTile(Icons.Default.CalendarMonth, "Manage Holidays", "Set exception holidays", onManageHolidays)
         ManagerTile(Icons.AutoMirrored.Filled.EventNote, "Extra Classes", "Schedule one-off sessions", onExtraClasses)
         ManagerTile(Icons.Default.Quiz, "Tests & Exams", "Add and manage assessment timetables", onExamManager)
@@ -59,9 +60,9 @@ fun ScheduleManagerScreen(
 }
 
 @Composable
-private fun ManagerTile(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+private fun ManagerTile(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
             .clickable(onClick = hapticClick(onClick))

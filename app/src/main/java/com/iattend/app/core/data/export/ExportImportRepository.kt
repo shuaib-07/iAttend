@@ -213,6 +213,24 @@ class ExportImportRepository @Inject constructor(
         occurrenceRepository.regenerateUnmarkedWindow()
     }
 
+    /** Wipes subjects/timetable/attendance/holidays/assessments; keeps theme, profile name and
+     * reminder/backup preferences. The tracking dates and required-% default are reset too since
+     * they're meaningless once every subject they applied to is gone. */
+    suspend fun resetAcademicData() {
+        db.withTransaction { db.clearAllTables() }
+        settingsRepository.setTrackingStartDate(null)
+        settingsRepository.setTrackingEndDate(null)
+        settingsRepository.setRequiredPercentageDefault(75f)
+    }
+
+    /** Full wipe back to a fresh install: every DB table plus every setting and profile field,
+     * including onboardingComplete - sends the user back through onboarding. */
+    suspend fun resetFull() {
+        db.withTransaction { db.clearAllTables() }
+        settingsRepository.replaceAll(AppSettings())
+        profileRepository.replaceAll(Profile())
+    }
+
     suspend fun importAuto(jsonText: String): Boolean {
         val isTemplate = try {
             val el = json.parseToJsonElement(jsonText).jsonObject

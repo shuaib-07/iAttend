@@ -2,6 +2,7 @@ package com.iattend.app.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.iattend.app.core.data.export.ExportImportRepository
 import com.iattend.app.core.datastore.BackupFrequency
 import com.iattend.app.core.datastore.NavBarStyle
 import com.iattend.app.core.datastore.SettingsRepository
@@ -27,6 +28,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val occurrenceRepository: OccurrenceRepository,
     private val reminderScheduler: ClassReminderScheduler,
+    private val exportImportRepository: ExportImportRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     val requiredPercentage: StateFlow<Float> = settingsRepository.settings
@@ -159,5 +161,19 @@ class SettingsViewModel @Inject constructor(
 
     fun setAutoBackupFolderUri(uri: String?) {
         viewModelScope.launch { settingsRepository.setAutoBackupFolderUri(uri) }
+    }
+
+    fun resetAcademicData(onDone: () -> Unit) {
+        viewModelScope.launch {
+            exportImportRepository.resetAcademicData()
+            onDone()
+        }
+    }
+
+    fun resetFull(onDone: () -> Unit) {
+        viewModelScope.launch {
+            exportImportRepository.resetFull()
+            onDone()
+        }
     }
 }

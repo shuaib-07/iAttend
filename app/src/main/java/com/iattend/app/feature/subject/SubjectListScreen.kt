@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.Subject
+import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.hapticClick
 
@@ -54,7 +55,7 @@ fun SubjectListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = hapticClick(onAddSubject)) { Icon(Icons.Default.Add, contentDescription = "Add subject") }
+            FloatingActionButton(onClick = hapticClick(onAddSubject), modifier = Modifier.tutorialTarget("add_subject_fab")) { Icon(Icons.Default.Add, contentDescription = "Add subject") }
         }
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {

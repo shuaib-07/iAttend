@@ -62,7 +62,7 @@ import com.iattend.app.core.ui.SquircleIconButton
 
 private const val UPI_ID = "mdshuaib2005-1@okhdfcbank"
 private const val LINKEDIN_URL = "https://www.linkedin.com/in/muhammed-shuaib-6430881b5?utm_source=share_via&utm_content=profile&utm_medium=member_android"
-private const val EMAIL = "mdshuaib2005@gmail.com"
+private val EMAIL = AppLinks.SUPPORT_EMAIL
 private const val INSTAGRAM_URL = "https://instagram.com/shuaib07_"
 private const val DEVELOPER_NAME = "Muhammed Shuaib"
 private const val APP_DESCRIPTION = "Attendance tracking and timetable planning, without the spreadsheet."

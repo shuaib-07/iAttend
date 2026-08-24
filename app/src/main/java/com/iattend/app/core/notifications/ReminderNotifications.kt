@@ -31,9 +31,17 @@ const val ACTION_MARK_STATUS = "com.iattend.app.action.MARK_STATUS"
 const val CLASS_END_NOTIFICATION_ID_OFFSET = 2_000_000
 const val APP_UPDATE_NOTIFICATION_ID = 3_000_001
 
+// ponytail: some OEM builds (reported on Samsung One UI) throw a NullPointerException from
+// canScheduleExactAlarms() itself when the AlarmManager binder isn't up yet - happens right
+// after onboarding on a fresh cold start. Treat any failure here as "can't schedule": reminders
+// just won't fire exactly, which is recoverable, instead of crashing the whole app.
 fun canScheduleExactAlarmsFor(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-        context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        try {
+            context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        } catch (_: Exception) {
+            false
+        }
 
 fun ensureReminderChannel(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

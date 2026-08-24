@@ -85,11 +85,14 @@ private val AmoledColorScheme = DarkColorScheme.copy(
 val AvailableAccents = listOf("FOREST", "ROSEWATER", "BLUE", "GREEN", "MAUVE", "PEACH", "PINE_ROSE", "PINE_IRIS", "PINE_PINE", "PINE_GOLD", "PINE_FOAM")
 
 private fun getCustomLightScheme(accent: String): ColorScheme = when (accent) {
-    "ROSEWATER" -> accentLight(primary = Latte_Rosewater, secondary = Latte_Rosewater_secondary, tertiary = Latte_Rosewater_tertiary, isPine = false)
+    // Rosewater/Peach are light enough that the default White onPrimary fails contrast against
+    // their own primary (e.g. Rosewater's ~1.6:1 vs White, needs ~3:1) - same dark-onPrimary
+    // pattern the Pine accents below already use for their own light pills.
+    "ROSEWATER" -> accentLight(primary = Latte_Rosewater, secondary = Latte_Rosewater_secondary, tertiary = Latte_Rosewater_tertiary, isPine = false, onPrimary = Color(0xFF1a1b20))
     "BLUE" -> accentLight(primary = Latte_Blue, secondary = Latte_Blue_secondary, tertiary = Latte_Blue_tertiary, isPine = false)
     "GREEN" -> accentLight(primary = Latte_Green, secondary = Latte_Green_secondary, tertiary = Latte_Green_tertiary, isPine = false)
     "MAUVE" -> accentLight(primary = Latte_Mauve, secondary = Latte_Mauve_secondary, tertiary = Latte_Mauve_tertiary, isPine = false)
-    "PEACH" -> accentLight(primary = Latte_Peach, secondary = Latte_Peach_secondary, tertiary = Latte_Peach_tertiary, isPine = false)
+    "PEACH" -> accentLight(primary = Latte_Peach, secondary = Latte_Peach_secondary, tertiary = Latte_Peach_tertiary, isPine = false, onPrimary = Color(0xFF1a1b20))
     "PINE_ROSE" -> accentLight(primary = Dawn_Rose, secondary = Dawn_Rose_secondary, tertiary = Dawn_Rose_tertiary, isPine = true, onPrimary = Dawn_OnBackground)
     "PINE_IRIS" -> accentLight(primary = Dawn_Iris, secondary = Dawn_Iris_secondary, tertiary = Dawn_Iris_tertiary, isPine = true, onPrimary = Dawn_Surface_Base)
     "PINE_PINE" -> accentLight(primary = Dawn_Pine, secondary = Dawn_Pine_secondary, tertiary = Dawn_Pine_tertiary, isPine = true, onPrimary = Dawn_Surface_Base)
