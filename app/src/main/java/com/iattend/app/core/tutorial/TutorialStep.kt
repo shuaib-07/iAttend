@@ -24,7 +24,15 @@ data class TutorialStep(
     val targetId: String = "",
     val title: String,
     val body: String,
-    val completion: TutorialCompletion = TutorialCompletion.ManualNext
+    val completion: TutorialCompletion = TutorialCompletion.ManualNext,
+    /** For steps with [navigateTo]: does this destination still count as "on the step's screen"?
+     * Checked on every back-stack change so backing out of the forced screen (e.g. the system back
+     * button) snaps back onto it instead of stranding the tour. Ignored when [navigateTo] is null. */
+    val onTargetScreen: (NavDestination?) -> Boolean = { true },
+    /** Centers the tooltip instead of dodging to the target's opposite half, and draws a curly
+     * doodle arrow pointing from the tooltip down to [targetId] - used for FABs sitting in a
+     * screen corner, where a same-half tooltip would sit right on top of the button. */
+    val calloutArrow: Boolean = false
 )
 
 /** Signal ids reported by real save/action call sites - kept as constants so the screen code and

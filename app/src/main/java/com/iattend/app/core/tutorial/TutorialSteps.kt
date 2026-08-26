@@ -26,7 +26,8 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
     TutorialStep(
         id = 1, navigateTo = SettingsRoute, targetId = "required_pct_row",
         title = "Required attendance %",
-        body = "This is the minimum attendance you need. Everything else is measured against it."
+        body = "This is the minimum attendance you need. Everything else is measured against it.",
+        onTargetScreen = { it?.hasRoute<SettingsRoute>() == true }
     ),
     TutorialStep(
         id = 2, targetId = "tracking_period_row",
@@ -37,7 +38,8 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
     TutorialStep(
         id = 3, navigateTo = TimetableHubRoute,
         title = "Timetable hub",
-        body = "Subjects, timetable, holidays and extra classes all live here."
+        body = "Subjects, timetable, holidays and extra classes all live here.",
+        onTargetScreen = { it?.hasRoute<TimetableHubRoute>() == true }
     ),
     TutorialStep(
         id = 4, targetId = "subjects_tile",
@@ -49,7 +51,8 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
         id = 5, targetId = "add_subject_fab",
         title = "Add a subject",
         body = "Tap the + to create one.",
-        completion = TutorialCompletion.OnRoute { it?.hasRoute<SubjectEditorRoute>() == true }
+        completion = TutorialCompletion.OnRoute { it?.hasRoute<SubjectEditorRoute>() == true },
+        calloutArrow = true
     ),
     TutorialStep(
         id = 6, targetId = "subject_name_field",
@@ -77,19 +80,22 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
     TutorialStep(
         id = 10, navigateTo = RecurringHolidayRoute,
         title = "Weekly holidays",
-        body = "Toggle any day that's always off (e.g. every Sunday) - it won't count against your attendance."
+        body = "Toggle any day that's always off (e.g. every Sunday) - it won't count against your attendance.",
+        onTargetScreen = { it?.hasRoute<RecurringHolidayRoute>() == true }
     ),
     TutorialStep(
         id = 11, navigateTo = TimetableHubRoute, targetId = "manage_timetable_tile",
         title = "Manage timetable",
         body = "Tap Manage Timetable to build your weekly schedule.",
-        completion = TutorialCompletion.OnRoute { it?.hasRoute<TimetableVersionListRoute>() == true }
+        completion = TutorialCompletion.OnRoute { it?.hasRoute<TimetableVersionListRoute>() == true },
+        onTargetScreen = { it?.hasRoute<TimetableHubRoute>() == true }
     ),
     TutorialStep(
         id = 12, targetId = "add_version_fab",
         title = "Add a timetable version",
         body = "Tap the + to start building this term's schedule.",
-        completion = TutorialCompletion.OnRoute { it?.hasRoute<TimetableVersionEditorRoute>() == true }
+        completion = TutorialCompletion.OnRoute { it?.hasRoute<TimetableVersionEditorRoute>() == true },
+        calloutArrow = true
     ),
     TutorialStep(
         id = 13, targetId = "slot_form",
@@ -115,12 +121,14 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
         title = "Extra classes",
         body = "For one-off classes outside your regular timetable. Let's add one for today so you " +
             "have something real to mark in the next couple steps.",
-        completion = TutorialCompletion.OnSignal(TutorialSignal.EXTRA_CLASS_SAVED)
+        completion = TutorialCompletion.OnSignal(TutorialSignal.EXTRA_CLASS_SAVED),
+        onTargetScreen = { it?.hasRoute<ExtraClassesRoute>() == true }
     ),
     TutorialStep(
         id = 17, navigateTo = HomeRoute, targetId = "attendance_chart",
         title = "Your dashboard",
-        body = "This chart tracks your overall attendance trend over time."
+        body = "This chart tracks your overall attendance trend over time.",
+        onTargetScreen = { it?.hasRoute<HomeRoute>() == true }
     ),
     TutorialStep(
         id = 18, targetId = "subject_summary_card",
@@ -138,7 +146,8 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
         id = 20, navigateTo = CalendarRoute, targetId = "mark_chip",
         title = "Marking from Calendar",
         body = "You can also mark any scheduled or extra class Present/Absent/Cancelled right from here. Try it now.",
-        completion = TutorialCompletion.OnSignal(TutorialSignal.OCCURRENCE_MARKED)
+        completion = TutorialCompletion.OnSignal(TutorialSignal.OCCURRENCE_MARKED),
+        onTargetScreen = { it?.hasRoute<CalendarRoute>() == true }
     ),
     TutorialStep(
         id = 21, targetId = "notification_bell",
