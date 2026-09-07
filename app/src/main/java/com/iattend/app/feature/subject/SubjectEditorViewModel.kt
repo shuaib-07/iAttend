@@ -108,4 +108,15 @@ class SubjectEditorViewModel @Inject constructor(
             _state.value = _state.value.copy(saved = true, subjectId = savedId)
         }
     }
+
+    fun delete() {
+        if (isNew) return
+        viewModelScope.launch {
+            subjectDao.getAll().first().find { it.id == route.subjectId }?.let { s ->
+                subjectDao.delete(s)
+            }
+            occurrenceRepository.regenerateUnmarkedWindow()
+            _state.value = _state.value.copy(saved = true)
+        }
+    }
 }

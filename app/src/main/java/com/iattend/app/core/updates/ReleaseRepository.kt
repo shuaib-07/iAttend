@@ -111,23 +111,23 @@ class ReleaseRepository @Inject constructor(
         return listOf(
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Interactive Live Tour (21 Steps)",
-                description = "Learn how to use iAttend with a live spotlight tour directly on the real screens."
+                title = "Home Screen Widget Overhaul",
+                description = "Cycle between days using left/right chevron arrows, tap date to reset, view EXTRA class badges, and see instant status shading (green for present, red for absent, strikethrough for cancelled)."
             ),
             FeatureHighlight(
-                category = "NEW FEATURE",
-                title = "Onboarding Avatar Picker",
-                description = "Choose your favorite avatar or upload a custom image directly during onboarding."
+                category = "IMPROVEMENT",
+                title = "Calendar Attendance Undo & Toggle",
+                description = "Tap an already-marked status chip (Present, Absent, Cancel) in the Calendar to instantly undo/toggle it back to Unmarked."
             ),
             FeatureHighlight(
-                category = "NEW FEATURE",
-                title = "Data Reset (Danger Zone)",
-                description = "Easily reset academic data for a fresh semester or perform a full app wipe in Settings."
+                category = "IMPROVEMENT",
+                title = "Smart Notification Sync",
+                description = "Marking attendance in-app or before class automatically cancels pending before/after class reminders and clears active notifications."
             ),
             FeatureHighlight(
                 category = "BUG FIX",
-                title = "Stability & One UI Fixes",
-                description = "Fixed Insights 0% bar crash, Samsung alarm crash risk, One UI settings scroll, and added CrashReporter."
+                title = "Extra Classes Guard Fix",
+                description = "Resolved unwarranted 'Discard changes?' dialog when exiting after adding and saving extra classes."
             )
         )
     }

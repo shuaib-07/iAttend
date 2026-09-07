@@ -1,5 +1,6 @@
 package com.iattend.app.feature.subject
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,9 +36,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.ClassOccurrence
+import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal
@@ -61,6 +64,7 @@ fun SubjectDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var occurrenceToDelete by remember { mutableStateOf<ClassOccurrence?>(null) }
     val tutorialController = LocalTutorialController.current
 
     LaunchedEffect(Unit) { viewModel.deleted.collect { onBack() } }
@@ -138,12 +142,15 @@ fun SubjectDetailScreen(
                 items(state.history, key = { it.id }) { occurrence ->
                     val isFirst = occurrence.id == state.history.first().id
                     HistoryRow(
-                        occurrence,
+                        occurrence = occurrence,
                         onClick = {
                             viewModel.cycleStatus(occurrence)
                             if (isFirst) tutorialController?.reportSignal(TutorialSignal.HISTORY_STATUS_CYCLED)
                         },
                         onSetCancelReason = { reason -> viewModel.setCancelReason(occurrence, reason) },
+                        onDeleteExtra = if (occurrence.source == OccurrenceSource.EXTRA) {
+                            { occurrenceToDelete = occurrence }
+                        } else null,
                         modifier = Modifier.animateItem().let { if (isFirst) it.tutorialTarget("history_row") else it }
                     )
                 }
@@ -162,6 +169,25 @@ fun SubjectDetailScreen(
             dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } }
         )
     }
+
+    occurrenceToDelete?.let { occ ->
+        SpringAlertDialog(
+            onDismissRequest = { occurrenceToDelete = null },
+            title = { Text("Delete extra class?") },
+            text = { Text("This will permanently remove this extra class and update your attendance history.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteOccurrence(occ)
+                        occurrenceToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { occurrenceToDelete = null }) { Text("Cancel") } }
+        )
+    }
 }
 
 @Composable
@@ -169,6 +195,7 @@ private fun HistoryRow(
     occurrence: ClassOccurrence,
     onClick: () -> Unit,
     onSetCancelReason: (String?) -> Unit,
+    onDeleteExtra: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showReasonDialog by remember(occurrence.id) { mutableStateOf(false) }
@@ -189,12 +216,43 @@ private fun HistoryRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(occurrence.date.format(historyDateFormat))
+                Row(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(occurrence.date.format(historyDateFormat), maxLines = 1, softWrap = false)
+                    if (occurrence.source == OccurrenceSource.EXTRA) {
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                "Extra",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(occurrence.status.name, color = statusColor)
                     if (occurrence.status == OccurrenceStatus.CANCELLED) {
                         IconButton(onClick = { showReasonDialog = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit cancel reason")
+                        }
+                    }
+                    if (occurrence.source == OccurrenceSource.EXTRA && onDeleteExtra != null) {
+                        IconButton(onClick = onDeleteExtra) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete extra class",
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }

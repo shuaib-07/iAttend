@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -14,12 +17,14 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -31,10 +36,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassType
 import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal
@@ -43,6 +52,7 @@ import com.iattend.app.core.ui.DatePickerField
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
 import com.iattend.app.core.ui.SquircleIconButton
+import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.SubjectChipRow
 import com.iattend.app.core.ui.TimePickerField
 import com.iattend.app.core.ui.hapticClick
@@ -60,6 +70,8 @@ fun ExtraClassesScreen(
     val isDirty by viewModel.isDirty.collectAsState()
     val guardedBack = rememberUnsavedChangesGuard(isDirty = isDirty, onConfirmedBack = onBack)
     val tutorialController = LocalTutorialController.current
+    var occurrenceToDelete by remember { mutableStateOf<ClassOccurrence?>(null) }
+    var showDeleteEditingDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -102,8 +114,18 @@ fun ExtraClassesScreen(
                         },
                         enabled = form.subjectId != null,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                    ) { Text(if (form.editingOccurrenceId != null) "Update Extra Class" else "Schedule Extra Class") }
+                    ) { Text(if (form.editingOccurrenceId != null) "Save Changes" else "Save Extra Class") }
+
                     if (form.editingOccurrenceId != null) {
+                        OutlinedButton(
+                            onClick = { showDeleteEditingDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Delete Extra Class")
+                        }
                         TextButton(
                             onClick = viewModel::cancelEdit,
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
@@ -111,7 +133,7 @@ fun ExtraClassesScreen(
                     }
 
                     Text(
-                        "SCHEDULED EXTRA CLASSES",
+                        "TODAY'S SCHEDULED EXTRA CLASSES",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
@@ -148,7 +170,7 @@ fun ExtraClassesScreen(
                             IconButton(onClick = { viewModel.startEdit(extra.occurrence) }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit extra class")
                             }
-                            IconButton(onClick = { viewModel.delete(extra.occurrence) }) {
+                            IconButton(onClick = { occurrenceToDelete = extra.occurrence }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete extra class", tint = MaterialTheme.colorScheme.error)
                             }
                         }
@@ -156,5 +178,47 @@ fun ExtraClassesScreen(
                 }
             }
         }
+    }
+
+    if (showDeleteEditingDialog) {
+        SpringAlertDialog(
+            onDismissRequest = { showDeleteEditingDialog = false },
+            title = { Text("Delete Extra Class?") },
+            text = { Text("Are you sure you want to delete this scheduled extra class? This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteEditing()
+                        showDeleteEditingDialog = false
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteEditingDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    occurrenceToDelete?.let { occ ->
+        SpringAlertDialog(
+            onDismissRequest = { occurrenceToDelete = null },
+            title = { Text("Delete Extra Class?") },
+            text = { Text("Are you sure you want to delete this scheduled extra class? This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.delete(occ)
+                        occurrenceToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { occurrenceToDelete = null }) { Text("Cancel") }
+            }
+        )
     }
 }

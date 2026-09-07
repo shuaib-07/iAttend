@@ -98,6 +98,15 @@ class ClassReminderScheduler @Inject constructor(
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    fun cancelRemindersForOccurrence(occurrenceId: Long) {
+        ReminderOffset.PRESET_MINUTES.forEach { offsetMinutes ->
+            alarmManager.cancel(classReminderPendingIntent(occurrenceId, offsetMinutes))
+        }
+        alarmManager.cancel(classEndPendingIntent(occurrenceId))
+        androidx.core.app.NotificationManagerCompat.from(context).cancel(occurrenceId.toInt())
+        androidx.core.app.NotificationManagerCompat.from(context).cancel(CLASS_END_NOTIFICATION_ID_OFFSET + occurrenceId.toInt())
+    }
+
     fun scheduleMidnightRefresh() {
         val zone = ZoneId.systemDefault()
         val nextMidnight = LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.MIDNIGHT)

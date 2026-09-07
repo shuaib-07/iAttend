@@ -17,6 +17,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class NotificationActionReceiver : BroadcastReceiver() {
     @Inject lateinit var classOccurrenceDao: ClassOccurrenceDao
+    @Inject lateinit var reminderScheduler: ClassReminderScheduler
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_MARK_STATUS) return
@@ -37,10 +38,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 classOccurrenceDao.getByIdOnce(occurrenceId)?.let {
                     classOccurrenceDao.update(it.copy(status = status))
                 }
-                // Both the pre-class and post-class reminders act on the same occurrence and can
-                // be showing at once - dismiss whichever is up (cancelling a non-existent id is a no-op).
-                NotificationManagerCompat.from(context).cancel(occurrenceId.toInt())
-                NotificationManagerCompat.from(context).cancel(CLASS_END_NOTIFICATION_ID_OFFSET + occurrenceId.toInt())
+                reminderScheduler.cancelRemindersForOccurrence(occurrenceId)
                 com.iattend.app.widget.UpcomingClassesWidget().updateAll(context = context)
             } finally {
                 pendingResult.finish()

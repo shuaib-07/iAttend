@@ -1,0 +1,118 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="180dp"
+    android:viewportWidth="250"
+    android:viewportHeight="180">
+
+    <!-- Widget Card Background -->
+    <path
+        android:fillColor="#FF23202A"
+        android:pathData="M20,0 L230,0 A20,20 0 0,1 250,20 L250,160 A20,20 0 0,1 230,180 L20,180 A20,20 0 0,1 0,160 L0,20 A20,20 0 0,1 20,0 Z" />
+
+    <!-- Card Border -->
+    <path
+        android:strokeColor="#FF353140"
+        android:strokeWidth="1.5"
+        android:pathData="M20,0.75 L230,0.75 A19.25,19.25 0 0,1 249.25,20 L249.25,160 A19.25,19.25 0 0,1 230,179.25 L20,179.25 A19.25,19.25 0 0,1 0.75,160 L0.75,20 A19.25,19.25 0 0,1 20,0.75 Z" />
+
+    <!-- Navigation Prev Button Circle -->
+    <path
+        android:fillColor="#FF353140"
+        android:pathData="M202,12 A11,11 0 1,1 202,34 A11,11 0 1,1 202,12 Z" />
+
+    <!-- Prev Chevron -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M204,18 L199,23 L204,28 L202.5,29.5 L196,23 L202.5,16.5 Z" />
+
+    <!-- Navigation Next Button Circle -->
+    <path
+        android:fillColor="#FF353140"
+        android:pathData="M228,12 A11,11 0 1,1 228,34 A11,11 0 1,1 228,12 Z" />
+
+    <!-- Next Chevron -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M226,18 L231,23 L226,28 L227.5,29.5 L234,23 L227.5,16.5 Z" />
+
+    <!-- Header Text Bar (Simulated Date Title) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16,18 L120,18 A3,3 0 0,1 120,24 L16,24 A3,3 0 0,1 16,18 Z" />
+
+    <!-- Row 1: Present (Green shaded box) -->
+    <path
+        android:fillColor="#FF1E382B"
+        android:pathData="M20,44 L230,44 A8,8 0 0,1 238,52 L238,76 A8,8 0 0,1 230,84 L20,84 A8,8 0 0,1 12,76 L12,52 A8,8 0 0,1 20,44 Z" />
+
+    <!-- Row 1 Letter Circle -->
+    <path
+        android:fillColor="#FF7E57C2"
+        android:pathData="M24,54 A8,8 0 1,1 24,70 A8,8 0 1,1 24,54 Z" />
+
+    <!-- Row 1 Text Line 1 -->
+    <path
+        android:fillColor="#FFE8F5E9"
+        android:pathData="M40,55 L140,55 A2.5,2.5 0 0,1 140,60 L40,60 A2.5,2.5 0 0,1 40,55 Z" />
+
+    <!-- Row 1 Text Line 2 -->
+    <path
+        android:fillColor="#FFA5D6A7"
+        android:pathData="M40,66 L110,66 A2,2 0 0,1 110,70 L40,70 A2,2 0 0,1 40,66 Z" />
+
+    <!-- Row 1 Checkmark -->
+    <path
+        android:fillColor="#FF81C784"
+        android:pathData="M220,60 L224,65 L232,54 L234,56 L224,69 L218,62 Z" />
+
+    <!-- Row 2: Extra Class -->
+    <path
+        android:fillColor="#FF2A2733"
+        android:pathData="M20,90 L230,90 A8,8 0 0,1 238,98 L238,122 A8,8 0 0,1 230,130 L20,130 A8,8 0 0,1 12,122 L12,98 A8,8 0 0,1 20,90 Z" />
+
+    <!-- Row 2 Letter Circle -->
+    <path
+        android:fillColor="#FFE57373"
+        android:pathData="M24,100 A8,8 0 1,1 24,116 A8,8 0 1,1 24,100 Z" />
+
+    <!-- Row 2 Text Line 1 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M40,101 L120,101 A2.5,2.5 0 0,1 120,106 L40,106 A2.5,2.5 0 0,1 40,101 Z" />
+
+    <!-- Row 2 EXTRA badge -->
+    <path
+        android:fillColor="#FF4A3416"
+        android:pathData="M130,99 L158,99 A3,3 0 0,1 161,102 L161,106 A3,3 0 0,1 158,109 L130,109 A3,3 0 0,1 127,106 L127,102 A3,3 0 0,1 130,99 Z" />
+
+    <!-- Row 2 Text Line 2 -->
+    <path
+        android:fillColor="#FFB0AEC0"
+        android:pathData="M40,112 L115,112 A2,2 0 0,1 115,116 L40,116 A2,2 0 0,1 40,112 Z" />
+
+    <!-- Row 3: Absent / Cancelled -->
+    <path
+        android:fillColor="#FF381C22"
+        android:pathData="M20,136 L230,136 A8,8 0 0,1 238,144 L238,168 A8,8 0 0,1 230,176 L20,176 A8,8 0 0,1 12,168 L12,144 A8,8 0 0,1 20,136 Z" />
+
+    <!-- Row 3 Letter Circle -->
+    <path
+        android:fillColor="#FF4FC3F7"
+        android:pathData="M24,146 A8,8 0 1,1 24,162 A8,8 0 1,1 24,146 Z" />
+
+    <!-- Row 3 Text Line 1 -->
+    <path
+        android:fillColor="#FFFFEBEE"
+        android:pathData="M40,147 L130,147 A2.5,2.5 0 0,1 130,152 L40,152 A2.5,2.5 0 0,1 40,147 Z" />
+
+    <!-- Row 3 Text Line 2 -->
+    <path
+        android:fillColor="#FFEF9A9A"
+        android:pathData="M40,158 L105,158 A2,2 0 0,1 105,162 L40,162 A2,2 0 0,1 40,158 Z" />
+
+    <!-- Row 3 Cross Mark -->
+    <path
+        android:fillColor="#FFEF9A9A"
+        android:pathData="M220,149 L223,146 L228,151 L233,146 L236,149 L231,154 L236,159 L233,162 L228,157 L223,162 L220,159 L225,154 Z" />
+
+</vector>

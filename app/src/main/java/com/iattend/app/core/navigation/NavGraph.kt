@@ -214,7 +214,12 @@ fun AppNavHost(startDestination: Any) {
                                 onEdit = { subjectId, assessmentId -> navController.navigate(AssessmentEditorRoute(subjectId, assessmentId)) }
                             )
                         }
-                        composable<CalendarRoute> { CalendarScreen(onAddExtra = { date -> navController.navigate(ExtraClassesRoute(date.toString())) }) }
+                        composable<CalendarRoute> {
+                            CalendarScreen(
+                                onAddExtra = { date -> navController.navigate(ExtraClassesRoute(prefillDate = date.toString())) },
+                                onEditExtra = { occurrenceId -> navController.navigate(ExtraClassesRoute(editOccurrenceId = occurrenceId)) }
+                            )
+                        }
                         composable<SettingsRoute> {
                             SettingsScreen(
                                 onNavigateToAppearance = { navController.navigate(AppearanceRoute) },

@@ -69,7 +69,19 @@ class OccurrenceRepository @Inject constructor(
         // marked occurrences via the FK - keying off it would silently stop recognizing them as
         // already-marked and duplicate a fresh UNMARKED row on every single save.
         val existing = classOccurrenceDao.getInRangeOnce(start, horizon)
+
+        // If a date is a holiday, any SCHEDULED occurrence on that date (even if previously marked
+        // Absent/Present/Cancelled before the holiday was declared) must be purged.
+        val scheduledOnHolidays = existing.filter {
+            it.source == OccurrenceSource.SCHEDULED && OccurrenceGenerator.isHoliday(it.date, holidays, rules)
+        }
+        for (occ in scheduledOnHolidays) {
+            classOccurrenceDao.delete(occ)
+        }
+        val deletedHolidayIds = scheduledOnHolidays.map { it.id }.toSet()
+
         val markedKeys = existing
+            .filterNot { it.id in deletedHolidayIds }
             .filter { it.status != OccurrenceStatus.UNMARKED && it.source == OccurrenceSource.SCHEDULED }
             .map { Triple(it.date, it.subjectId, it.startTime) }
             .toSet()

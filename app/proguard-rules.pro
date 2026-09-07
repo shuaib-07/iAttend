@@ -22,3 +22,10 @@
 -keep class com.iattend.app.core.datastore.AppSettings { *; }
 -keep class com.iattend.app.core.datastore.Profile { *; }
 -keep class com.iattend.app.core.data.export.ExportPayload { *; }
+
+# Glance AppWidgets and ActionCallbacks (instantiated via reflection by Android OS / Glance)
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { *; }
+-keep class androidx.glance.appwidget.action.ActionCallback { *; }
+-keep class * extends androidx.glance.appwidget.GlanceAppWidget { *; }
+-keep class * extends androidx.glance.appwidget.GlanceAppWidgetReceiver { *; }
+-keep class com.iattend.app.widget.** { *; }

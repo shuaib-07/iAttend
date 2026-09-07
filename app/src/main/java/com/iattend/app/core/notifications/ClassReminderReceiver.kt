@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.iattend.app.core.data.db.ClassOccurrenceDao
+import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.SubjectDao
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -25,8 +26,9 @@ class ClassReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val occurrence = classOccurrenceDao.getByIdOnce(occurrenceId)
-                val subject = occurrence?.let { subjectDao.getByIdOnce(it.subjectId) }
-                if (occurrence != null && subject != null) {
+                if (occurrence == null || occurrence.status != OccurrenceStatus.UNMARKED) return@launch
+                val subject = subjectDao.getByIdOnce(occurrence.subjectId)
+                if (subject != null) {
                     ensureReminderChannel(context)
                     showClassReminderNotification(context, occurrence, subject.name)
                 }

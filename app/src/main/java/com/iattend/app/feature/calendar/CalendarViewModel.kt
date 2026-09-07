@@ -11,6 +11,11 @@ import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.stats.AttendanceStatsCalculator
+import com.iattend.app.core.notifications.ClassReminderScheduler
+import android.content.Context
+import androidx.glance.appwidget.updateAll
+import com.iattend.app.widget.UpcomingClassesWidget
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +41,8 @@ data class DayAssessmentRow(val assessment: Assessment, val subject: Subject?)
 class CalendarViewModel @Inject constructor(
     private val classOccurrenceDao: ClassOccurrenceDao,
     private val assessmentDao: AssessmentDao,
+    private val reminderScheduler: ClassReminderScheduler,
+    @ApplicationContext private val context: Context,
     subjectDao: SubjectDao,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
@@ -59,21 +66,19 @@ class CalendarViewModel @Inject constructor(
         classOccurrenceDao.getAll(),
         subjectDao.getAll(),
         settingsRepository.settings
-    ) { date, all, subjects, settings ->
-        all.filter { it.date == date }
-            .sortedBy { it.startTime }
+    ) { date, occurrences, subjects, settings ->
+        val subjectsById = subjects.associateBy { it.id }
+        occurrences
+            .filter { it.date == date }
+            .sortedWith(compareBy({ it.startTime }, { it.id }))
             .map { occ ->
-                val subject = subjects.find { it.id == occ.subjectId }
-                val required = subject?.requiredPercentageOverride ?: settings.requiredPercentageDefault
+                val subject = subjectsById[occ.subjectId]
+                val req = subject?.requiredPercentageOverride ?: settings.requiredPercentageDefault
                 val stats = subject?.let {
-                    AttendanceStatsCalculator.compute(
-                        it,
-                        all.filter { o -> o.subjectId == it.id },
-                        required,
-                        settings.trackingEndDate
-                    )
+                    val allForSubject = occurrences.filter { o -> o.subjectId == it.id }
+                    AttendanceStatsCalculator.compute(it, allForSubject, req, settings.trackingEndDate)
                 }
-                DayOccurrenceRow(occ, subject, stats, required)
+                DayOccurrenceRow(occ, subject, stats, req)
             }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -81,10 +86,12 @@ class CalendarViewModel @Inject constructor(
         _selectedDate,
         assessmentDao.getAll(),
         subjectDao.getAll()
-    ) { date, all, subjects ->
-        all.filter { it.date == date }
-            .sortedBy { it.startTime }
-            .map { a -> DayAssessmentRow(a, subjects.find { it.id == a.subjectId }) }
+    ) { date, allAssessments, subjects ->
+        val subjectsById = subjects.associateBy { it.id }
+        allAssessments
+            .filter { it.date == date }
+            .sortedWith(compareBy({ it.startTime }, { it.id }))
+            .map { DayAssessmentRow(it, subjectsById[it.subjectId]) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val assessmentDatesInWeek: StateFlow<Set<LocalDate>> = combine(
@@ -100,15 +107,29 @@ class CalendarViewModel @Inject constructor(
 
     fun mark(occurrence: ClassOccurrence, status: OccurrenceStatus) {
         if (occurrence.date.isAfter(LocalDate.now())) return
-        val cancelReason = if (status == OccurrenceStatus.CANCELLED) occurrence.cancelReason else null
+        val newStatus = if (occurrence.status == status) OccurrenceStatus.UNMARKED else status
+        val cancelReason = if (newStatus == OccurrenceStatus.CANCELLED) occurrence.cancelReason else null
         viewModelScope.launch {
-            classOccurrenceDao.update(occurrence.copy(status = status, cancelReason = cancelReason))
+            classOccurrenceDao.update(occurrence.copy(status = newStatus, cancelReason = cancelReason))
+            if (newStatus != OccurrenceStatus.UNMARKED) {
+                reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+            }
+            UpcomingClassesWidget().updateAll(context)
         }
     }
 
     fun setCancelReason(occurrence: ClassOccurrence, reason: String?) {
         viewModelScope.launch {
             classOccurrenceDao.update(occurrence.copy(cancelReason = reason?.ifBlank { null }))
+            UpcomingClassesWidget().updateAll(context)
+        }
+    }
+
+    fun deleteOccurrence(occurrence: ClassOccurrence) {
+        viewModelScope.launch {
+            classOccurrenceDao.delete(occurrence)
+            reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+            UpcomingClassesWidget().updateAll(context)
         }
     }
 }

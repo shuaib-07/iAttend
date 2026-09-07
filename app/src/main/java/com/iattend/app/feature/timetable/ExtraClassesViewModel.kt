@@ -12,6 +12,11 @@ import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.navigation.ExtraClassesRoute
+import com.iattend.app.core.notifications.ClassReminderScheduler
+import android.content.Context
+import androidx.glance.appwidget.updateAll
+import com.iattend.app.widget.UpcomingClassesWidget
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +47,8 @@ data class ExtraClassForm(
 class ExtraClassesViewModel @Inject constructor(
     private val classOccurrenceDao: ClassOccurrenceDao,
     private val subjectDao: SubjectDao,
+    private val reminderScheduler: ClassReminderScheduler,
+    @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<ExtraClassesRoute>()
@@ -54,11 +61,15 @@ class ExtraClassesViewModel @Inject constructor(
     val subjects: StateFlow<List<Subject>> = subjectDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private var initialForm = _form.value
-    private var initializedSubject = false
-    val isDirty: StateFlow<Boolean> = form
-        .map { it != initialForm }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    private val _editingOriginalForm = MutableStateFlow<ExtraClassForm?>(null)
+
+    val isDirty: StateFlow<Boolean> = combine(_form, _editingOriginalForm) { form, original ->
+        if (form.editingOccurrenceId == null || original == null) {
+            false
+        } else {
+            form != original
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val upcomingExtras: StateFlow<List<UpcomingExtra>> = combine(
         classOccurrenceDao.getAll(),
@@ -73,12 +84,14 @@ class ExtraClassesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            if (route.editOccurrenceId != null) {
+                val occ = classOccurrenceDao.getByIdOnce(route.editOccurrenceId)
+                if (occ != null) {
+                    startEdit(occ)
+                }
+            }
             subjects.collect { list ->
                 if (_form.value.subjectId == null) _form.update { it.copy(subjectId = list.firstOrNull()?.id) }
-                if (!initializedSubject && list.isNotEmpty()) {
-                    initialForm = _form.value
-                    initializedSubject = true
-                }
             }
         }
     }
@@ -94,7 +107,7 @@ class ExtraClassesViewModel @Inject constructor(
 
     fun startEdit(occurrence: ClassOccurrence) {
         editingOriginal = occurrence
-        _form.value = ExtraClassForm(
+        val editForm = ExtraClassForm(
             date = occurrence.date,
             subjectId = occurrence.subjectId,
             startTime = occurrence.startTime ?: LocalTime.of(9, 0),
@@ -103,11 +116,14 @@ class ExtraClassesViewModel @Inject constructor(
             classType = occurrence.classType,
             editingOccurrenceId = occurrence.id
         )
+        _editingOriginalForm.value = editForm
+        _form.value = editForm
     }
 
     fun cancelEdit() {
         editingOriginal = null
-        _form.value = initialForm
+        _editingOriginalForm.value = null
+        _form.update { it.copy(room = "", editingOccurrenceId = null) }
     }
 
     fun schedule() {
@@ -127,6 +143,7 @@ class ExtraClassesViewModel @Inject constructor(
                     )
                 )
                 editingOriginal = null
+                _editingOriginalForm.value = null
             } else {
                 classOccurrenceDao.insert(
                     ClassOccurrence(
@@ -143,14 +160,28 @@ class ExtraClassesViewModel @Inject constructor(
                 )
             }
             _form.update { it.copy(room = "", editingOccurrenceId = null) }
-            initialForm = _form.value
+            _editingOriginalForm.value = null
+            reminderScheduler.scheduleTodayReminders()
+            UpcomingClassesWidget().updateAll(context)
         }
     }
 
     fun delete(occurrence: ClassOccurrence) {
         viewModelScope.launch {
             classOccurrenceDao.delete(occurrence)
+            reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+            UpcomingClassesWidget().updateAll(context)
             if (editingOriginal?.id == occurrence.id) cancelEdit()
+        }
+    }
+
+    fun deleteEditing() {
+        val occurrenceId = _form.value.editingOccurrenceId ?: return
+        viewModelScope.launch {
+            val occ = editingOriginal ?: classOccurrenceDao.getByIdOnce(occurrenceId)
+            if (occ != null) {
+                delete(occ)
+            }
         }
     }
 }

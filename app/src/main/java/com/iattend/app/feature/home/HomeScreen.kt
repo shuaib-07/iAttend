@@ -54,7 +54,7 @@ fun HomeScreen(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 110.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp)
     ) {
         item {
             GreetingRow(collapseFraction = collapseFraction, modifier = Modifier.padding(bottom = 20.dp))

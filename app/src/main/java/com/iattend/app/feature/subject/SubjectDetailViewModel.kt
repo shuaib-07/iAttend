@@ -9,9 +9,14 @@ import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
+import android.content.Context
+import androidx.glance.appwidget.updateAll
 import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.stats.AttendanceStatsCalculator
 import com.iattend.app.core.navigation.SubjectDetailRoute
+import com.iattend.app.core.notifications.ClassReminderScheduler
+import com.iattend.app.widget.UpcomingClassesWidget
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +40,8 @@ class SubjectDetailViewModel @Inject constructor(
     private val subjectDao: SubjectDao,
     private val settingsRepository: SettingsRepository,
     private val classOccurrenceDao: ClassOccurrenceDao,
+    private val reminderScheduler: ClassReminderScheduler,
+    @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val subjectId = savedStateHandle.toRoute<SubjectDetailRoute>().subjectId
@@ -76,12 +83,25 @@ class SubjectDetailViewModel @Inject constructor(
         val cancelReason = if (next == OccurrenceStatus.CANCELLED) occurrence.cancelReason else null
         viewModelScope.launch {
             classOccurrenceDao.update(occurrence.copy(status = next, cancelReason = cancelReason))
+            if (next != OccurrenceStatus.UNMARKED) {
+                reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+            }
+            UpcomingClassesWidget().updateAll(context)
         }
     }
 
     fun setCancelReason(occurrence: ClassOccurrence, reason: String?) {
         viewModelScope.launch {
             classOccurrenceDao.update(occurrence.copy(cancelReason = reason?.ifBlank { null }))
+            UpcomingClassesWidget().updateAll(context)
+        }
+    }
+
+    fun deleteOccurrence(occurrence: ClassOccurrence) {
+        viewModelScope.launch {
+            classOccurrenceDao.delete(occurrence)
+            reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+            UpcomingClassesWidget().updateAll(context)
         }
     }
 }
