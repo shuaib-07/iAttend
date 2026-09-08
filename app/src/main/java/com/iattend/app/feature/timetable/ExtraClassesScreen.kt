@@ -140,6 +140,7 @@ fun ExtraClassesScreen(
                     )
                 }
             }
+
             if (upcoming.isEmpty()) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
