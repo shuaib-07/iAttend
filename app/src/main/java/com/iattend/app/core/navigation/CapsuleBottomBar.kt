@@ -69,7 +69,7 @@ fun CapsuleBottomBar(navController: NavHostController, backdrop: Backdrop, desti
     val tabs = remember {
         listOf(
             CapsuleTab("lottie/home.json", "Home", { it?.hasRoute<HomeRoute>() == true }, HomeRoute),
-            CapsuleTab("lottie/calendar.json", "Calendar", { it?.hasRoute<CalendarRoute>() == true }, CalendarRoute),
+            CapsuleTab("lottie/calendar.json", "Calendar", { it?.hasRoute<CalendarRoute>() == true }, CalendarRoute()),
             CapsuleTab("lottie/timetable.json", "Timetable", { it?.hasRoute<TimetableHubRoute>() == true }, TimetableHubRoute),
             CapsuleTab("lottie/insights.json", "Insights", { it?.hasRoute<InsightsRoute>() == true }, InsightsRoute),
             CapsuleTab("lottie/settings.json", "Settings", { it?.hasRoute<SettingsRoute>() == true }, SettingsRoute)

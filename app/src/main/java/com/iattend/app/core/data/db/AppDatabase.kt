@@ -92,6 +92,16 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE subjects ADD COLUMN defaultRoomNumber TEXT")
+        db.execSQL("ALTER TABLE timetable_slots ADD COLUMN roomNumberOverridden INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("UPDATE timetable_slots SET roomNumberOverridden = 1 WHERE roomNumber IS NOT NULL AND TRIM(roomNumber) != ''")
+        db.execSQL("ALTER TABLE class_occurrences ADD COLUMN roomNumberOverridden INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("UPDATE class_occurrences SET roomNumberOverridden = 1 WHERE roomNumber IS NOT NULL AND TRIM(roomNumber) != ''")
+    }
+}
+
 @Database(
     entities = [
         Subject::class,
@@ -102,7 +112,7 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         RecurringHolidayRule::class,
         Assessment::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

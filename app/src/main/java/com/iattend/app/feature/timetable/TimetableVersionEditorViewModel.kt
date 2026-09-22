@@ -1,10 +1,14 @@
 package com.iattend.app.feature.timetable
 
+import android.content.Context
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.SavedStateHandle
+import androidx.room.withTransaction
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.iattend.app.core.data.db.ClassType
+import com.iattend.app.core.data.db.AppDatabase
 import com.iattend.app.core.data.db.RecurringHolidayMode
 import com.iattend.app.core.data.db.RecurringHolidayRuleDao
 import com.iattend.app.core.data.db.Subject
@@ -15,6 +19,8 @@ import com.iattend.app.core.data.db.TimetableVersion
 import com.iattend.app.core.data.db.TimetableVersionDao
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import com.iattend.app.core.navigation.TimetableVersionEditorRoute
+import com.iattend.app.widget.UpcomingClassesWidget
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +45,9 @@ data class DraftSlot(
     val endTime: LocalTime,
     val classCount: Int,
     val roomNumber: String? = null,
-    val classType: ClassType = ClassType.LECTURE
+    val classType: ClassType = ClassType.LECTURE,
+    val roomNumberOverridden: Boolean = false,
+    val setSubjectDefaultRoom: Boolean = false
 )
 
 sealed class EditorNavEvent {
@@ -71,12 +79,14 @@ data class TimetableVersionEditorState(
 
 @HiltViewModel
 class TimetableVersionEditorViewModel @Inject constructor(
+    private val db: AppDatabase,
     private val timetableVersionDao: TimetableVersionDao,
     private val timetableSlotDao: TimetableSlotDao,
     private val subjectDao: SubjectDao,
     private val recurringHolidayRuleDao: RecurringHolidayRuleDao,
     private val occurrenceRepository: OccurrenceRepository,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<TimetableVersionEditorRoute>()
     val isNew: Boolean get() = route.versionId == 0L
@@ -106,7 +116,7 @@ class TimetableVersionEditorViewModel @Inject constructor(
                     effectiveFrom = it.effectiveFrom
                 }
                 slots = timetableSlotDao.getForVersionOnce(route.versionId).map {
-                    DraftSlot(nextLocalId++, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType)
+                    DraftSlot(nextLocalId++, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
                 }
             }
             _state.value = _state.value.copy(
@@ -133,9 +143,12 @@ class TimetableVersionEditorViewModel @Inject constructor(
     fun onLabelChange(v: String) { _state.value = _state.value.copy(label = v) }
     fun onEffectiveFromChange(v: LocalDate) { _state.value = _state.value.copy(effectiveFrom = v) }
 
-    fun addSlot(subjectId: Long, dayOfWeek: DayOfWeek, startTime: LocalTime, endTime: LocalTime, classCount: Int, roomNumber: String?, classType: ClassType) {
-        val slot = DraftSlot(nextLocalId++, subjectId, dayOfWeek, startTime, endTime, classCount, roomNumber?.trim()?.ifBlank { null }, classType)
-        val updated = _state.value.slots + slot
+    fun addSlot(subjectId: Long, dayOfWeek: DayOfWeek, startTime: LocalTime, endTime: LocalTime, classCount: Int, roomNumber: String?, classType: ClassType, roomNumberOverridden: Boolean, setSubjectDefaultRoom: Boolean) {
+        val slot = DraftSlot(nextLocalId++, subjectId, dayOfWeek, startTime, endTime, classCount, roomNumber?.trim()?.ifBlank { null }.takeIf { roomNumberOverridden }, classType, roomNumberOverridden, setSubjectDefaultRoom)
+        val existing = _state.value.slots.map {
+            if (setSubjectDefaultRoom && it.subjectId == subjectId) it.copy(setSubjectDefaultRoom = false) else it
+        }
+        val updated = existing + slot
         _state.value = _state.value.copy(slots = updated, hasOverlap = computeOverlap(updated))
     }
 
@@ -147,7 +160,9 @@ class TimetableVersionEditorViewModel @Inject constructor(
         endTime: LocalTime,
         classCount: Int,
         roomNumber: String?,
-        classType: ClassType
+        classType: ClassType,
+        roomNumberOverridden: Boolean,
+        setSubjectDefaultRoom: Boolean
     ) {
         val old = _state.value.slots.find { it.localId == localId } ?: return
         val oldSubjectId = old.subjectId ?: return
@@ -157,10 +172,18 @@ class TimetableVersionEditorViewModel @Inject constructor(
             startTime = startTime,
             endTime = endTime,
             classCount = classCount,
-            roomNumber = roomNumber?.trim()?.ifBlank { null },
-            classType = classType
+            roomNumber = roomNumber?.trim()?.ifBlank { null }.takeIf { roomNumberOverridden },
+            classType = classType,
+            roomNumberOverridden = roomNumberOverridden,
+            setSubjectDefaultRoom = setSubjectDefaultRoom
         )
-        val updatedSlots = _state.value.slots.map { if (it.localId == localId) updated else it }
+        val updatedSlots = _state.value.slots.map {
+            when {
+                it.localId == localId -> updated
+                setSubjectDefaultRoom && it.subjectId == subjectId -> it.copy(setSubjectDefaultRoom = false)
+                else -> it
+            }
+        }
         val corrections = if (old.startTime != startTime || old.endTime != endTime) {
             _state.value.pendingCorrections + PendingTimeCorrection(oldSubjectId, old.dayOfWeek, old.startTime, old.endTime, startTime, endTime)
         } else {
@@ -185,14 +208,14 @@ class TimetableVersionEditorViewModel @Inject constructor(
     fun duplicateDay(from: DayOfWeek, to: Set<DayOfWeek>) {
         val sourceSlots = _state.value.slots.filter { it.dayOfWeek == from }
         if (sourceSlots.isEmpty() || to.isEmpty()) return
-        val copies = to.flatMap { day -> sourceSlots.map { it.copy(localId = nextLocalId++, dayOfWeek = day) } }
+        val copies = to.flatMap { day -> sourceSlots.map { it.copy(localId = nextLocalId++, dayOfWeek = day, setSubjectDefaultRoom = false) } }
         val updated = _state.value.slots + copies
         _state.value = _state.value.copy(slots = updated, hasOverlap = computeOverlap(updated))
     }
 
     fun duplicateSlot(slot: DraftSlot, to: Set<DayOfWeek>) {
         if (to.isEmpty()) return
-        val copies = to.map { day -> slot.copy(localId = nextLocalId++, dayOfWeek = day) }
+        val copies = to.map { day -> slot.copy(localId = nextLocalId++, dayOfWeek = day, setSubjectDefaultRoom = false) }
         val updated = _state.value.slots + copies
         _state.value = _state.value.copy(slots = updated, hasOverlap = computeOverlap(updated))
     }
@@ -207,35 +230,48 @@ class TimetableVersionEditorViewModel @Inject constructor(
     fun save() {
         viewModelScope.launch {
             val s = _state.value
-            val versionId = if (isNew) {
-                timetableVersionDao.insert(TimetableVersion(label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
-            } else {
-                timetableVersionDao.update(TimetableVersion(id = route.versionId, label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
-                route.versionId
-            }
-
-            timetableSlotDao.deleteAllForVersion(versionId)
-            s.slots.forEach { slot ->
-                if (slot.subjectId != null) {
-                    timetableSlotDao.insert(
+            val changedDefaultRooms = mutableMapOf<Long, String?>()
+            val versionId = db.withTransaction {
+                val id = if (isNew) {
+                    timetableVersionDao.insert(TimetableVersion(label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
+                } else {
+                    timetableVersionDao.update(TimetableVersion(id = route.versionId, label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
+                    route.versionId
+                }
+                s.slots.filter { it.setSubjectDefaultRoom && it.subjectId != null }.forEach { slot ->
+                    val subject = subjectDao.getByIdOnce(slot.subjectId!!) ?: return@forEach
+                    val newDefault = if (slot.roomNumberOverridden) slot.roomNumber else subject.defaultRoomNumber
+                    if (subject.defaultRoomNumber != newDefault) {
+                        subjectDao.update(subject.copy(defaultRoomNumber = newDefault))
+                        changedDefaultRooms[subject.id] = newDefault
+                    }
+                }
+                timetableSlotDao.deleteAllForVersion(id)
+                s.slots.forEach { slot ->
+                    if (slot.subjectId != null) timetableSlotDao.insert(
                         TimetableSlot(
-                            timetableVersionId = versionId,
+                            timetableVersionId = id,
                             subjectId = slot.subjectId,
                             dayOfWeek = slot.dayOfWeek,
                             startTime = slot.startTime,
                             endTime = slot.endTime,
                             classCount = slot.classCount,
                             roomNumber = slot.roomNumber,
-                            classType = slot.classType
+                            classType = slot.classType,
+                            roomNumberOverridden = slot.roomNumberOverridden
                         )
                     )
                 }
+                id
             }
+
+            changedDefaultRooms.forEach { (subjectId, room) -> occurrenceRepository.refreshInheritedRooms(subjectId, room) }
 
             s.pendingCorrections.forEach { c ->
                 occurrenceRepository.fixOccurrenceTimes(c.subjectId, c.dayOfWeek, c.oldStart, c.oldEnd, c.newStart, c.newEnd)
             }
             occurrenceRepository.regenerateUnmarkedWindow()
+            UpcomingClassesWidget().updateAll(context)
 
             _navEvents.send(
                 if (s.effectiveFrom.isBefore(LocalDate.now())) {

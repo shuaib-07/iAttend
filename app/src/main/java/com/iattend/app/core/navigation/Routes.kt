@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable object OnboardingRoute
 
 @Serializable object HomeRoute
-@Serializable object CalendarRoute
+@Serializable data class CalendarRoute(val selectedDate: String? = null)
 @Serializable object SettingsRoute
 @Serializable object AppearanceRoute
 @Serializable object InsightsRoute

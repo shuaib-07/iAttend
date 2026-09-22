@@ -3,6 +3,7 @@ package com.iattend.app.core.ui.pickers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,6 +23,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.TimePickerState
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import com.iattend.app.core.datastore.TimeFormat
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -231,7 +236,7 @@ fun CashiroDateRangePickerDialog(
 }
 
 /**
- * Exact Cashiro TimePicker visuals, forced 12h per spec #3.
+ * Exact Cashiro TimePicker visuals.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -239,20 +244,33 @@ fun CashiroTimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     timePickerState: TimePickerState,
+    format: TimeFormat,
+    onFormatChange: (TimeFormat) -> Unit,
 ) {
     val containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Select time") },
         text = {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                TimePicker(
-                    state = timePickerState,
-                    colors = TimePickerDefaults.colors(
-                        clockDialColor = MaterialTheme.colorScheme.surface.copy(0.7f),
-                        timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                SingleChoiceSegmentedButtonRow {
+                    TimeFormat.entries.forEachIndexed { index, option ->
+                        SegmentedButton(
+                            selected = format == option,
+                            onClick = { onFormatChange(option) },
+                            shape = SegmentedButtonDefaults.itemShape(index, TimeFormat.entries.size)
+                        ) { Text(if (option == TimeFormat.TWELVE_HOUR) "12-hour" else "24-hour") }
+                    }
+                }
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(
+                        state = timePickerState,
+                        colors = TimePickerDefaults.colors(
+                            clockDialColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                            timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                        )
                     )
-                )
+                }
             }
         },
         confirmButton = {

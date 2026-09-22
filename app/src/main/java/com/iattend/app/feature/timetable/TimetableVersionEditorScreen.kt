@@ -62,6 +62,7 @@ import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.SubjectChipRow
 import com.iattend.app.core.ui.TimePickerField
+import com.iattend.app.core.ui.LocalTimeFormat
 import com.iattend.app.core.ui.formatTime
 import com.iattend.app.core.ui.hapticClick
 import com.iattend.app.core.ui.modalsheet.SideSheet
@@ -82,6 +83,9 @@ fun TimetableVersionEditorScreen(
     var startTime by remember { mutableStateOf(LocalTime.of(9, 0)) }
     var endTime by remember { mutableStateOf(LocalTime.of(10, 0)) }
     var room by remember { mutableStateOf("") }
+    var roomOverridden by remember { mutableStateOf(false) }
+    var setAsDefaultRoom by remember { mutableStateOf(false) }
+    var confirmClearDefault by remember { mutableStateOf(false) }
     var classCount by remember { mutableStateOf("1") }
     var classType by remember { mutableStateOf(ClassType.LECTURE) }
     var editingLocalId by remember { mutableStateOf<Int?>(null) }
@@ -91,9 +95,24 @@ fun TimetableVersionEditorScreen(
     val viewModelDirty by viewModel.isDirty.collectAsState()
     val guardedBack = rememberUnsavedChangesGuard(isDirty = viewModelDirty || formTouched, onConfirmedBack = onBack)
     val tutorialController = LocalTutorialController.current
+    fun findEffectiveRoom(subjectId: Long?, excludedLocalId: Int?): String? {
+        val subject = state.subjects.firstOrNull { it.id == subjectId }
+        val pending = state.slots.lastOrNull {
+            it.localId != excludedLocalId && it.subjectId == subjectId && it.setSubjectDefaultRoom
+        }
+        return if (pending == null) subject?.defaultRoomNumber
+        else if (pending.roomNumberOverridden) pending.roomNumber else subject?.defaultRoomNumber
+    }
+    val effectiveRoomForSubject: (Long?) -> String? = { subjectId ->
+        findEffectiveRoom(subjectId, null)
+    }
 
     LaunchedEffect(state.subjects) {
-        if (selectedSubjectId == null) selectedSubjectId = state.subjects.firstOrNull()?.id
+        if (selectedSubjectId == null) {
+            val first = state.subjects.firstOrNull()
+            selectedSubjectId = first?.id
+            room = effectiveRoomForSubject(first?.id).orEmpty()
+        }
     }
     LaunchedEffect(Unit) {
         viewModel.navEvents.collect { event ->
@@ -187,14 +206,24 @@ fun TimetableVersionEditorScreen(
                         if (editingLocalId != null) {
                             TextButton(onClick = {
                                 editingLocalId = null
-                                room = ""
+                                room = effectiveRoomForSubject(selectedSubjectId).orEmpty()
+                                roomOverridden = false
+                                setAsDefaultRoom = false
                                 classCount = "1"
                                 classType = ClassType.LECTURE
                                 formTouched = false
                             }) { Text("Cancel edit") }
                         }
                     }
-                    SubjectChipRow(state.subjects, selectedSubjectId, onSelect = { selectedSubjectId = it; formTouched = true })
+                    SubjectChipRow(state.subjects, selectedSubjectId, onSelect = {
+                        if (selectedSubjectId != it) {
+                            selectedSubjectId = it
+                            room = effectiveRoomForSubject(it).orEmpty()
+                            roomOverridden = false
+                            setAsDefaultRoom = false
+                            formTouched = true
+                        }
+                    })
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TimePickerField("Start", startTime, { startTime = it; formTouched = true }, Modifier.weight(1f))
                         TimePickerField("End", endTime, { endTime = it; formTouched = true }, Modifier.weight(1f))
@@ -210,10 +239,31 @@ fun TimetableVersionEditorScreen(
                     }
                     RoomComboBox(
                         value = room,
-                        onValueChange = { room = it; formTouched = true },
+                        onValueChange = { room = it; roomOverridden = true; formTouched = true },
                         options = state.knownRooms,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        inherited = !roomOverridden,
+                        supportingText = if (roomOverridden) "Overridden for this slot" else "Subject default: ${effectiveRoomForSubject(selectedSubjectId) ?: "Not set"}"
                     )
+                    if (roomOverridden) TextButton(onClick = {
+                        roomOverridden = false
+                        room = effectiveRoomForSubject(selectedSubjectId).orEmpty()
+                        formTouched = true
+                    }) { Text("Reset to subject default") }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = setAsDefaultRoom,
+                            enabled = room.isNotBlank() || effectiveRoomForSubject(selectedSubjectId) != null,
+                            onCheckedChange = { checked ->
+                                if (checked && room.isBlank() && effectiveRoomForSubject(selectedSubjectId) != null) confirmClearDefault = true
+                                else {
+                                    setAsDefaultRoom = checked
+                                    formTouched = true
+                                }
+                            }
+                        )
+                        Text(if (room.isBlank()) "Remove subject default room" else "Set as default for this subject")
+                    }
                     OutlinedTextField(
                         value = classCount,
                         onValueChange = { classCount = it; formTouched = true },
@@ -224,15 +274,18 @@ fun TimetableVersionEditorScreen(
                         onClick = hapticClick {
                             selectedSubjectId?.let {
                                 val editing = editingLocalId
+                                val nextRoom = if (setAsDefaultRoom) room else findEffectiveRoom(selectedSubjectId, editing).orEmpty()
                                 if (editing != null) {
-                                    viewModel.updateSlot(editing, it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType)
+                                    viewModel.updateSlot(editing, it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType, roomOverridden, setAsDefaultRoom)
                                     editingLocalId = null
                                 } else {
-                                    viewModel.addSlot(it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType)
+                                    viewModel.addSlot(it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType, roomOverridden, setAsDefaultRoom)
                                     startTime = endTime
                                 }
                                 tutorialController?.reportSignal(TutorialSignal.SLOT_SAVED)
-                                room = ""
+                                room = nextRoom
+                                roomOverridden = false
+                                setAsDefaultRoom = false
                                 classCount = "1"
                                 classType = ClassType.LECTURE
                                 formTouched = false
@@ -259,6 +312,7 @@ fun TimetableVersionEditorScreen(
             day = selectedDay,
             slots = state.slots.filter { it.dayOfWeek == selectedDay }.sortedBy { it.startTime },
             subjectName = { id -> state.subjects.find { it.id == id }?.name ?: "?" },
+            subjectRoom = effectiveRoomForSubject,
             onRemove = viewModel::removeSlot,
             onEdit = { slot ->
                 editingLocalId = slot.localId
@@ -266,7 +320,9 @@ fun TimetableVersionEditorScreen(
                 selectedDay = slot.dayOfWeek
                 startTime = slot.startTime
                 endTime = slot.endTime
-                room = slot.roomNumber ?: ""
+                roomOverridden = slot.roomNumberOverridden
+                room = if (slot.roomNumberOverridden) slot.roomNumber.orEmpty() else effectiveRoomForSubject(slot.subjectId).orEmpty()
+                setAsDefaultRoom = slot.setSubjectDefaultRoom
                 classCount = slot.classCount.toString()
                 classType = slot.classType
                 formTouched = true
@@ -275,6 +331,18 @@ fun TimetableVersionEditorScreen(
             onDuplicateDay = { targets -> viewModel.duplicateDay(selectedDay, targets) },
             onDuplicateSlot = { slot, targets -> viewModel.duplicateSlot(slot, targets) },
             onDismiss = { showSlotsSheet = false }
+        )
+    }
+
+    if (confirmClearDefault) {
+        SpringAlertDialog(
+            onDismissRequest = { confirmClearDefault = false },
+            title = { Text("Remove subject default room?") },
+            text = { Text("Slots that inherit this default will no longer show a room. Slot-specific overrides will stay unchanged.") },
+            confirmButton = {
+                TextButton(onClick = { setAsDefaultRoom = true; formTouched = true; confirmClearDefault = false }) { Text("Remove default") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClearDefault = false }) { Text("Keep default") } }
         )
     }
 }
@@ -316,6 +384,7 @@ private fun SlotsSheetContent(
     day: DayOfWeek,
     slots: List<DraftSlot>,
     subjectName: (Long?) -> String,
+    subjectRoom: (Long?) -> String?,
     onRemove: (Int) -> Unit,
     onEdit: (DraftSlot) -> Unit,
     onDuplicateDay: (Set<DayOfWeek>) -> Unit,
@@ -366,14 +435,15 @@ private fun SlotsSheetContent(
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Text(
-                                    "${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}" +
+                                    "${formatTime(slot.startTime, LocalTimeFormat.current)} - ${formatTime(slot.endTime, LocalTimeFormat.current)}" +
                                         " · ${slot.classType.label}" +
-                                        (if (slot.classCount > 1) " · ${slot.classCount} classes" else "") +
-                                        (slot.roomNumber?.let { " · $it" } ?: ""),
+                                        (if (slot.classCount > 1) " · ${slot.classCount} classes" else ""),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            val room = (if (slot.roomNumberOverridden) slot.roomNumber else subjectRoom(slot.subjectId))?.takeIf { it.isNotBlank() }
+                            Text(room?.let { "Room $it" } ?: "Room not set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row {
                             IconButton(onClick = { onEdit(slot) }) {

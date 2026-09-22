@@ -41,6 +41,7 @@ import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
+import com.iattend.app.core.ui.LocalTimeFormat
 import com.iattend.app.core.ui.hapticClick
 
 /** Top-level "Tests & Exams" hub across all subjects, reached from the Timetable hub. Adding
@@ -112,7 +113,7 @@ private fun AllAssessmentRow(row: AllAssessmentsRow, onClick: () -> Unit, modifi
             Column(modifier = Modifier.weight(1f)) {
                 Text(assessment.title?.takeIf { it.isNotBlank() } ?: row.subjectName)
                 Text(row.subjectName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val dateText = "${formatDateShort(assessment.date)} - ${formatTime(assessment.startTime)} to ${formatTime(assessment.endTime)}"
+                val dateText = "${formatDateShort(assessment.date)} - ${formatTime(assessment.startTime, LocalTimeFormat.current)} to ${formatTime(assessment.endTime, LocalTimeFormat.current)}"
                 Text(dateText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             assessment.totalMarks?.let { Text("$it marks", style = MaterialTheme.typography.bodySmall) }

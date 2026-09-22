@@ -24,6 +24,11 @@ enum class ThemeMode { LIGHT, DARK, AMOLED, SYSTEM }
 enum class NavBarStyle { PILL, CAPSULE }
 
 @Serializable
+enum class TimeFormat { TWELVE_HOUR, TWENTY_FOUR_HOUR }
+
+enum class CalendarViewMode { WEEK, MONTH }
+
+@Serializable
 enum class BackupFrequency { DAILY, WEEKLY }
 
 @Serializable
@@ -48,7 +53,8 @@ data class AppSettings(
     val lastSeenVersion: String = "",
     val autoCheckUpdates: Boolean = true,
     /** -1 = not started, 0..TUTORIAL_STEP_COUNT-1 = in progress, TUTORIAL_STEP_COUNT = done. */
-    val tutorialStep: Int = -1
+    val tutorialStep: Int = -1,
+    val timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR
 )
 
 @Singleton
@@ -73,6 +79,8 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         val LAST_SEEN_VERSION = stringPreferencesKey("last_seen_version")
         val AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
         val TUTORIAL_STEP = androidx.datastore.preferences.core.intPreferencesKey("tutorial_step")
+        val TIME_FORMAT = stringPreferencesKey("time_format")
+        val CALENDAR_VIEW_MODE = stringPreferencesKey("calendar_view_mode")
     }
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
@@ -93,8 +101,18 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             accentColor = prefs[Keys.ACCENT_COLOR] ?: "FOREST",
             lastSeenVersion = prefs[Keys.LAST_SEEN_VERSION] ?: "",
             autoCheckUpdates = prefs[Keys.AUTO_CHECK_UPDATES] ?: true,
-            tutorialStep = prefs[Keys.TUTORIAL_STEP] ?: -1
+            tutorialStep = prefs[Keys.TUTORIAL_STEP] ?: -1,
+            timeFormat = prefs[Keys.TIME_FORMAT]?.let { runCatching { TimeFormat.valueOf(it) }.getOrNull() } ?: TimeFormat.TWELVE_HOUR
         )
+    }
+
+    val calendarViewMode: Flow<CalendarViewMode> = dataStore.data.map { prefs ->
+        prefs[Keys.CALENDAR_VIEW_MODE]?.let { runCatching { CalendarViewMode.valueOf(it) }.getOrNull() }
+            ?: CalendarViewMode.WEEK
+    }
+
+    suspend fun setCalendarViewMode(mode: CalendarViewMode) {
+        dataStore.edit { it[Keys.CALENDAR_VIEW_MODE] = mode.name }
     }
 
     suspend fun setTutorialStep(step: Int) {
@@ -115,6 +133,10 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
 
     suspend fun setRequiredPercentageDefault(percentage: Float) {
         dataStore.edit { it[Keys.REQUIRED_PERCENTAGE] = percentage }
+    }
+
+    suspend fun setTimeFormat(format: TimeFormat) {
+        dataStore.edit { it[Keys.TIME_FORMAT] = format.name }
     }
 
     suspend fun setTrackingStartDate(date: LocalDate?) {
@@ -196,6 +218,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             prefs[Keys.AUTO_BACKUP_FREQUENCY] = settings.autoBackupFrequency.name
             prefs[Keys.ACCENT_COLOR] = settings.accentColor
             prefs[Keys.AUTO_CHECK_UPDATES] = settings.autoCheckUpdates
+            prefs[Keys.TIME_FORMAT] = settings.timeFormat.name
             // autoBackupFolderUri deliberately not restored - a SAF tree URI grant is device/user-specific
             // and won't resolve on a different device or after a reinstall; falls back to the app-private default.
         }

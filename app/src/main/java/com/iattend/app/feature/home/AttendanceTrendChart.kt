@@ -43,6 +43,9 @@ fun AttendanceTrendChart(
     thisMonthPercent: Float,
     thisSemesterPercent: Float,
     currentPercent: Float,
+    currentPercentCaption: String,
+    semesterLabel: String,
+    semesterFallbackNotice: String?,
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -66,7 +69,18 @@ fun AttendanceTrendChart(
             ) {
                 Column {
                     Text("ATTENDANCE TREND", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${currentPercent.toInt()}%", style = MaterialTheme.typography.headlineSmall)
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("${currentPercent.toInt()}%", style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            currentPercentCaption,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 3.dp)
+                        )
+                    }
+                    semesterFallbackNotice?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 Icon(
                     Icons.Default.KeyboardArrowDown,
@@ -94,7 +108,7 @@ fun AttendanceTrendChart(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatColumn("This month", thisMonthPercent)
-                    StatColumn("This semester", thisSemesterPercent)
+                    StatColumn(semesterLabel, thisSemesterPercent, semesterFallbackNotice)
                     StatColumn("Current", currentPercent)
                 }
             }
@@ -103,10 +117,11 @@ fun AttendanceTrendChart(
 }
 
 @Composable
-private fun StatColumn(label: String, percent: Float) {
+private fun StatColumn(label: String, percent: Float, detail: String? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("${percent.toInt()}%", style = MaterialTheme.typography.titleMedium)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        detail?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 

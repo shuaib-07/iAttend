@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,11 +25,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -39,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -60,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.MainActivity
 import com.iattend.app.core.datastore.BackupFrequency
+import com.iattend.app.core.datastore.TimeFormat
 import com.iattend.app.core.notifications.ReminderOffset
 import com.iattend.app.core.ui.DatePickerField
 import com.iattend.app.core.ui.DateRangePickerField
@@ -83,6 +88,7 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
     val requiredPercentage by viewModel.requiredPercentage.collectAsState()
     val trackingEndDate by viewModel.trackingEndDate.collectAsState()
     val trackingStartDate by viewModel.trackingStartDate.collectAsState()
+    val timeFormat by viewModel.timeFormat.collectAsState()
 
     var showRequiredPercentSheet by remember { mutableStateOf(false) }
     var showTrackingEndDateSheet by remember { mutableStateOf(false) }
@@ -92,6 +98,8 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
     var showReminderDefaultsSheet by remember { mutableStateOf(false) }
     var showAutoBackupSheet by remember { mutableStateOf(false) }
     var showResetSheet by remember { mutableStateOf(false) }
+    var showTimeFormatHelp by remember { mutableStateOf(false) }
+    var showTimeFormatOptions by remember { mutableStateOf(false) }
 
     val devSupportRequested by DevSupportTrigger.requestOpen
     LaunchedEffect(devSupportRequested) {
@@ -109,15 +117,29 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         SettingsSection(title = "Attendance") {
-            SettingsIconRow(
-                title = "Required attendance percentage",
-                subtitle = "${requiredPercentage}%",
-                icon = Icons.Default.Percent,
-                colorIndex = 0,
-                position = ListItemPosition.Top,
-                onClick = { showRequiredPercentSheet = true },
-                modifier = Modifier.tutorialTarget("required_pct_row")
-            )
+            Column(modifier = Modifier.tutorialTarget("attendance_preferences")) {
+                SettingsIconRow(
+                    title = "Required attendance percentage",
+                    subtitle = "${requiredPercentage}%",
+                    icon = Icons.Default.Percent,
+                    colorIndex = 0,
+                    position = ListItemPosition.Top,
+                    onClick = { showRequiredPercentSheet = true }
+                )
+                SettingsIconRow(
+                    title = "Time format",
+                    subtitle = if (timeFormat == TimeFormat.TWENTY_FOUR_HOUR) "24-hour" else "12-hour with AM/PM",
+                    icon = Icons.Default.Schedule,
+                    colorIndex = 2,
+                    position = ListItemPosition.Bottom,
+                    onClick = { showTimeFormatOptions = true },
+                    trailingContent = {
+                        IconButton(onClick = { showTimeFormatHelp = true }) {
+                            Icon(Icons.Default.HelpOutline, contentDescription = "Where time format is used")
+                        }
+                    }
+                )
+            }
             SettingsIconRow(
                 title = "Tracking period",
                 subtitle = run {
@@ -132,7 +154,7 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
                 },
                 icon = Icons.Default.CalendarMonth,
                 colorIndex = 1,
-                position = ListItemPosition.Bottom,
+                position = ListItemPosition.Single,
                 onClick = { showTrackingEndDateSheet = true },
                 modifier = Modifier.tutorialTarget("tracking_period_row")
             )
@@ -210,6 +232,41 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
                 onClick = { showResetSheet = true }
             )
         }
+    }
+
+    if (showTimeFormatHelp) {
+        SpringAlertDialog(
+            onDismissRequest = { showTimeFormatHelp = false },
+            title = { Text("Time format") },
+            text = { Text("This preference changes times in your timetable, calendar, dashboard and upcoming classes, attendance and slot details, assessments, home-screen widget, class and assessment reminders, and time pickers. Switching format inside a time picker affects only that open picker and does not change this saved preference.") },
+            confirmButton = { TextButton(onClick = { showTimeFormatHelp = false }) { Text("Got it") } }
+        )
+    }
+    if (showTimeFormatOptions) {
+        SpringAlertDialog(
+            onDismissRequest = { showTimeFormatOptions = false },
+            title = { Text("Time format") },
+            text = {
+                Column {
+                    TimeFormat.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                viewModel.setTimeFormat(option)
+                                showTimeFormatOptions = false
+                            },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = timeFormat == option, onClick = {
+                                viewModel.setTimeFormat(option)
+                                showTimeFormatOptions = false
+                            })
+                            Text(if (option == TimeFormat.TWELVE_HOUR) "12-hour with AM/PM" else "24-hour")
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showTimeFormatOptions = false }) { Text("Done") } }
+        )
     }
 
     ModalSheet(visible = showRequiredPercentSheet, onVisibleChange = { showRequiredPercentSheet = it }) {
@@ -480,7 +537,8 @@ private fun SettingsIconRow(
     colorIndex: Int,
     position: ListItemPosition,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     val (containerColor, contentColor) = settingsIconColors(colorIndex)
     ListItem(
@@ -495,7 +553,7 @@ private fun SettingsIconRow(
                 Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
             }
         },
-        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailing = trailingContent ?: { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         shape = position.toShape(),
         onClick = onClick
     )

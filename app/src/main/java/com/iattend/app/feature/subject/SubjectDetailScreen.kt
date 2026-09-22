@@ -46,6 +46,8 @@ import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal
 import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.ProgressRing
+import com.iattend.app.core.ui.LocalTimeFormat
+import com.iattend.app.core.ui.formatTime
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.hapticClick
@@ -260,6 +262,17 @@ private fun HistoryRow(
             if (occurrence.status == OccurrenceStatus.CANCELLED && !occurrence.cancelReason.isNullOrBlank()) {
                 Text(
                     occurrence.cancelReason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val time = occurrence.startTime?.let { formatTime(it, LocalTimeFormat.current) }
+            if (time != null || !occurrence.roomNumber.isNullOrBlank()) {
+                Text(
+                    listOfNotNull(
+                        time?.let { start -> start + (occurrence.endTime?.let { " - ${formatTime(it, LocalTimeFormat.current)}" } ?: "") },
+                        occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { "Room $it" }
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

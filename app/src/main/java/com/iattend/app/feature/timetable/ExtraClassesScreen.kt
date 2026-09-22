@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +50,7 @@ import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal
 import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.DatePickerField
+import com.iattend.app.core.ui.LocalTimeFormat
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
 import com.iattend.app.core.ui.SquircleIconButton
@@ -72,6 +74,8 @@ fun ExtraClassesScreen(
     val tutorialController = LocalTutorialController.current
     var occurrenceToDelete by remember { mutableStateOf<ClassOccurrence?>(null) }
     var showDeleteEditingDialog by remember { mutableStateOf(false) }
+    var confirmClearDefault by remember { mutableStateOf(false) }
+    val selectedSubject = subjects.firstOrNull { it.id == form.subjectId }
 
     Scaffold(
         topBar = {
@@ -96,8 +100,22 @@ fun ExtraClassesScreen(
                         value = form.room,
                         onValueChange = viewModel::onRoomChange,
                         label = { Text("Room No (Optional)") },
+                        supportingText = { Text(if (form.roomOverridden) "Overridden for this class" else "Subject default: ${selectedSubject?.defaultRoomNumber ?: "Not set"}") },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = if (form.roomOverridden) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant),
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                     )
+                    if (form.roomOverridden) TextButton(onClick = viewModel::resetRoomToDefault) { Text("Reset to subject default") }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = form.setSubjectDefaultRoom,
+                            enabled = form.room.isNotBlank() || selectedSubject?.defaultRoomNumber != null,
+                            onCheckedChange = { checked ->
+                                if (checked && form.room.isBlank() && selectedSubject?.defaultRoomNumber != null) confirmClearDefault = true
+                                else viewModel.setSubjectDefaultRoom(checked)
+                            }
+                        )
+                        Text(if (form.room.isBlank()) "Remove subject default room" else "Set as default for this subject")
+                    }
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                         ClassType.entries.forEachIndexed { index, type ->
                             SegmentedButton(
@@ -162,11 +180,11 @@ fun ExtraClassesScreen(
                                 Text(extra.subjectName, style = MaterialTheme.typography.bodyLarge)
                                 Text(
                                     "${formatDateShort(extra.occurrence.date)}  " +
-                                        "${extra.occurrence.startTime?.let(::formatTime) ?: "?"}-${extra.occurrence.endTime?.let(::formatTime) ?: "?"}" +
-                                        (extra.occurrence.roomNumber?.let { "  · $it" } ?: ""),
+                                        "${extra.occurrence.startTime?.let { formatTime(it, LocalTimeFormat.current) } ?: "?"}-${extra.occurrence.endTime?.let { formatTime(it, LocalTimeFormat.current) } ?: "?"}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                extra.occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { Text("Room $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                             IconButton(onClick = { viewModel.startEdit(extra.occurrence) }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit extra class")
@@ -179,6 +197,16 @@ fun ExtraClassesScreen(
                 }
             }
         }
+    }
+
+    if (confirmClearDefault) {
+        SpringAlertDialog(
+            onDismissRequest = { confirmClearDefault = false },
+            title = { Text("Remove subject default room?") },
+            text = { Text("Classes that inherit this default will no longer show a room. Slot-specific overrides will stay unchanged.") },
+            confirmButton = { TextButton(onClick = { viewModel.setSubjectDefaultRoom(true); confirmClearDefault = false }) { Text("Remove default") } },
+            dismissButton = { TextButton(onClick = { confirmClearDefault = false }) { Text("Keep default") } }
+        )
     }
 
     if (showDeleteEditingDialog) {

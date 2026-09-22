@@ -58,4 +58,7 @@ interface ClassOccurrenceDao {
         "DELETE FROM class_occurrences WHERE status = 'UNMARKED' AND source = 'SCHEDULED' AND date BETWEEN :from AND :to"
     )
     suspend fun deleteUnmarkedScheduledInRange(from: LocalDate, to: LocalDate)
+
+    @Query("UPDATE class_occurrences SET roomNumber = :room WHERE subjectId = :subjectId AND status = 'UNMARKED' AND roomNumberOverridden = 0")
+    suspend fun updateInheritedRooms(subjectId: Long, room: String?)
 }

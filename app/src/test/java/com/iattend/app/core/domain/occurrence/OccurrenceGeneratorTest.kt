@@ -6,6 +6,7 @@ import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.RecurringHolidayMode
 import com.iattend.app.core.data.db.RecurringHolidayRule
+import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.TimetableSlot
 import com.iattend.app.core.data.db.TimetableVersion
 import org.junit.Assert.assertEquals
@@ -125,6 +126,33 @@ class OccurrenceGeneratorTest {
 
         assertEquals(2, occurrences.size)
         assertEquals(2, occurrences[1].classCount)
+    }
+
+    @Test
+    fun `occurrences inherit subject room unless a slot explicitly overrides or clears it`() {
+        val subjectId = 300L
+        val version = TimetableVersion(id = 1, effectiveFrom = LocalDate.of(2026, 8, 3))
+        val slots = listOf(
+            TimetableSlot(id = 1, timetableVersionId = 1, subjectId = subjectId, dayOfWeek = DayOfWeek.MONDAY, startTime = LocalTime.of(9, 0), endTime = LocalTime.of(10, 0)),
+            TimetableSlot(id = 2, timetableVersionId = 1, subjectId = subjectId, dayOfWeek = DayOfWeek.MONDAY, startTime = LocalTime.of(10, 0), endTime = LocalTime.of(11, 0), roomNumber = "B-204", roomNumberOverridden = true),
+            TimetableSlot(id = 3, timetableVersionId = 1, subjectId = subjectId, dayOfWeek = DayOfWeek.MONDAY, startTime = LocalTime.of(11, 0), endTime = LocalTime.of(12, 0), roomNumberOverridden = true)
+        )
+
+        val occurrences = OccurrenceGenerator.generateOccurrences(
+            dateRange = LocalDate.of(2026, 8, 3)..LocalDate.of(2026, 8, 3),
+            versions = listOf(version),
+            slotsByVersion = mapOf(1L to slots),
+            holidays = emptyList(),
+            recurringRules = emptyList(),
+            subjectsById = mapOf(subjectId to Subject(code = "PHY", name = "Physics", colorArgb = 0, defaultRoomNumber = "A-101"))
+        ).associateBy { it.timetableSlotId }
+
+        assertEquals("A-101", occurrences.getValue(1L).roomNumber)
+        assertFalse(occurrences.getValue(1L).roomNumberOverridden)
+        assertEquals("B-204", occurrences.getValue(2L).roomNumber)
+        assertTrue(occurrences.getValue(2L).roomNumberOverridden)
+        assertNull(occurrences.getValue(3L).roomNumber)
+        assertTrue(occurrences.getValue(3L).roomNumberOverridden)
     }
 
     @Test

@@ -24,9 +24,9 @@ import java.time.LocalDate
  */
 val TUTORIAL_STEPS: List<TutorialStep> = listOf(
     TutorialStep(
-        id = 1, navigateTo = SettingsRoute, targetId = "required_pct_row",
-        title = "Required attendance %",
-        body = "This is the minimum attendance you need. Everything else is measured against it.",
+        id = 1, navigateTo = SettingsRoute, targetId = "attendance_preferences",
+        title = "Attendance preferences",
+        body = "Set your minimum attendance percentage and choose whether times appear in 12-hour or 24-hour format. Your saved time preference applies across the app; you can also switch format temporarily inside an individual time picker.",
         onTargetScreen = { it?.hasRoute<SettingsRoute>() == true }
     ),
     TutorialStep(
@@ -143,7 +143,7 @@ val TUTORIAL_STEPS: List<TutorialStep> = listOf(
         completion = TutorialCompletion.OnSignal(TutorialSignal.HISTORY_STATUS_CYCLED)
     ),
     TutorialStep(
-        id = 20, navigateTo = CalendarRoute, targetId = "mark_chip",
+        id = 20, navigateTo = CalendarRoute(), targetId = "mark_chip",
         title = "Marking from Calendar",
         body = "You can also mark any scheduled or extra class Present/Absent/Cancelled right from here. Try it now.",
         completion = TutorialCompletion.OnSignal(TutorialSignal.OCCURRENCE_MARKED),

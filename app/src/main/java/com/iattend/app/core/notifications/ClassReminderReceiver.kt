@@ -6,6 +6,8 @@ import android.content.Intent
 import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.SubjectDao
+import com.iattend.app.core.datastore.SettingsRepository
+import kotlinx.coroutines.flow.first
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +19,7 @@ import javax.inject.Inject
 class ClassReminderReceiver : BroadcastReceiver() {
     @Inject lateinit var classOccurrenceDao: ClassOccurrenceDao
     @Inject lateinit var subjectDao: SubjectDao
+    @Inject lateinit var settingsRepository: SettingsRepository
 
     override fun onReceive(context: Context, intent: Intent) {
         val occurrenceId = intent.getLongExtra(EXTRA_OCCURRENCE_ID, -1L)
@@ -29,8 +32,9 @@ class ClassReminderReceiver : BroadcastReceiver() {
                 if (occurrence == null || occurrence.status != OccurrenceStatus.UNMARKED) return@launch
                 val subject = subjectDao.getByIdOnce(occurrence.subjectId)
                 if (subject != null) {
+                    val settings = settingsRepository.settings.first()
                     ensureReminderChannel(context)
-                    showClassReminderNotification(context, occurrence, subject.name)
+                    showClassReminderNotification(context, occurrence, subject.name, settings.timeFormat)
                 }
             } finally {
                 pendingResult.finish()

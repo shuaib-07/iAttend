@@ -33,6 +33,7 @@ data class SubjectEditorState(
     val knownTotalClasses: String = "",
     val trackingEndDateOverride: LocalDate? = null, // null = use global Settings end date (COMPUTED mode)
     val reminderOffsetsOverride: String? = null, // null = use Settings.classReminderDefaultOffsets
+    val defaultRoomNumber: String? = null,
     val saved: Boolean = false
 )
 
@@ -70,7 +71,8 @@ class SubjectEditorViewModel @Inject constructor(
                         totalMode = s.totalMode,
                         knownTotalClasses = s.knownTotalClasses?.toString() ?: "",
                         trackingEndDateOverride = s.trackingEndDateOverride,
-                        reminderOffsetsOverride = s.reminderOffsetsOverride
+                        reminderOffsetsOverride = s.reminderOffsetsOverride,
+                        defaultRoomNumber = s.defaultRoomNumber
                     )
                 }
             }
@@ -101,7 +103,8 @@ class SubjectEditorViewModel @Inject constructor(
                 totalMode = s.totalMode,
                 knownTotalClasses = if (s.totalMode == TotalMode.KNOWN) s.knownTotalClasses.toIntOrNull() else null,
                 trackingEndDateOverride = if (s.totalMode == TotalMode.COMPUTED) s.trackingEndDateOverride else null,
-                reminderOffsetsOverride = s.reminderOffsetsOverride
+                reminderOffsetsOverride = s.reminderOffsetsOverride,
+                defaultRoomNumber = s.defaultRoomNumber
             )
             val savedId = if (isNew) subjectDao.insert(subject) else { subjectDao.update(subject); subject.id }
             occurrenceRepository.regenerateUnmarkedWindow()

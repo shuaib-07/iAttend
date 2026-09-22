@@ -7,12 +7,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.iattend.app.core.datastore.TimeFormat
 import com.iattend.app.core.ui.pickers.CashiroDatePickerDialog
 import java.time.Instant
 import java.time.LocalDate
@@ -23,15 +25,15 @@ import java.util.Locale
 
 private val shortDateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 private val longDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy - EEEE")
-private val timeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+val LocalTimeFormat = compositionLocalOf { TimeFormat.TWELVE_HOUR }
 
 fun formatDateShort(date: LocalDate): String = date.format(shortDateFormat)
 
 /** "20/08/2026 (20 Aug 2026 - Thursday)" - short form for scanning/sorting, long form in brackets for clarity. */
 fun formatDateWithLong(date: LocalDate): String = "${date.format(shortDateFormat)} (${date.format(longDateFormat)})"
 
-/** 12-hour clock everywhere in the app, no exceptions (design.md Forms & Inputs rule). */
-fun formatTime(time: LocalTime): String = time.format(timeFormat)
+fun formatTime(time: LocalTime, format: TimeFormat = TimeFormat.TWELVE_HOUR): String =
+    time.format(DateTimeFormatter.ofPattern(if (format == TimeFormat.TWENTY_FOUR_HOUR) "HH:mm" else "h:mm a", Locale.getDefault()))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -38,5 +38,7 @@ data class TimetableSlot(
     @Serializable(with = LocalTimeSerializer::class) val endTime: LocalTime,
     val classCount: Int = 1,
     val roomNumber: String? = null,
-    val classType: ClassType = ClassType.LECTURE
+    val classType: ClassType = ClassType.LECTURE,
+    /** False inherits Subject.defaultRoomNumber; true uses roomNumber, including explicit blank. */
+    val roomNumberOverridden: Boolean = false
 )

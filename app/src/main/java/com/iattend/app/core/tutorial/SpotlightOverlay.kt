@@ -50,7 +50,7 @@ import com.iattend.app.core.navigation.navigateToTab
 /** The bottom nav's own tabs - forcing these via plain navigate() (instead of the popUpTo/
  * saveState/restoreState dance [navigateToTab] uses) corrupts NavController's per-destination
  * saved-state map, so the bottom bar later restores/highlights the wrong tab until process death. */
-private val TAB_ROUTES = setOf(HomeRoute, CalendarRoute, TimetableHubRoute, InsightsRoute, SettingsRoute)
+private val TAB_ROUTES = setOf(HomeRoute, CalendarRoute(), TimetableHubRoute, InsightsRoute, SettingsRoute)
 
 /** Drives the tour's navigation and renders the spotlight overlay - mounted once as a sibling of
  * NavHost (same layering as ModalSheet/UpdateAvailableModal in NavGraph.kt). */

@@ -58,7 +58,7 @@ fun AppBottomBar(navController: NavHostController, destination: NavDestination?,
     val tabs = remember {
         listOf(
             NavTab("lottie/home.json", "Home", { it?.hasRoute<HomeRoute>() == true }, HomeRoute),
-            NavTab("lottie/calendar.json", "Calendar", { it?.hasRoute<CalendarRoute>() == true }, CalendarRoute),
+            NavTab("lottie/calendar.json", "Calendar", { it?.hasRoute<CalendarRoute>() == true }, CalendarRoute()),
             NavTab("lottie/timetable.json", "Timetable", { it?.hasRoute<TimetableHubRoute>() == true }, TimetableHubRoute),
             NavTab("lottie/insights.json", "Insights", { it?.hasRoute<InsightsRoute>() == true }, InsightsRoute),
             NavTab("lottie/settings.json", "Settings", { it?.hasRoute<SettingsRoute>() == true }, SettingsRoute)
@@ -229,6 +229,10 @@ private fun FloatingNavItem(
 }
 
 internal fun NavHostController.navigateToTab(route: Any) {
+    // Home can already be underneath a date-specific CalendarRoute opened from its unmarked list.
+    // Pop directly to that existing Home entry instead of saving/restoring the Calendar stack.
+    if (route == HomeRoute && popBackStack<HomeRoute>(inclusive = false)) return
+
     navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true

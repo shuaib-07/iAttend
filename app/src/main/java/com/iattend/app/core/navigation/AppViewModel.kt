@@ -2,14 +2,19 @@ package com.iattend.app.core.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import androidx.glance.appwidget.updateAll
 import com.iattend.app.core.datastore.NavBarStyle
 import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.datastore.ThemeMode
+import com.iattend.app.core.datastore.TimeFormat
 import com.iattend.app.core.notifications.AutoBackupScheduler
 import com.iattend.app.core.notifications.ClassReminderScheduler
 import com.iattend.app.core.updates.AppReleaseInfo
 import com.iattend.app.core.updates.ReleaseRepository
 import com.iattend.app.core.updates.UpdateCheckScheduler
+import com.iattend.app.widget.UpcomingClassesWidget
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +31,8 @@ class AppViewModel @Inject constructor(
     private val reminderScheduler: ClassReminderScheduler,
     private val autoBackupScheduler: AutoBackupScheduler,
     private val updateCheckScheduler: UpdateCheckScheduler,
-    private val releaseRepository: ReleaseRepository
+    private val releaseRepository: ReleaseRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _onboardingComplete = MutableStateFlow<Boolean?>(null)
     val onboardingComplete: StateFlow<Boolean?> = _onboardingComplete.asStateFlow()
@@ -43,6 +49,9 @@ class AppViewModel @Inject constructor(
     private val _navBarStyle = MutableStateFlow(NavBarStyle.PILL)
     val navBarStyle: StateFlow<NavBarStyle> = _navBarStyle.asStateFlow()
 
+    private val _timeFormat = MutableStateFlow(TimeFormat.TWELVE_HOUR)
+    val timeFormat: StateFlow<TimeFormat> = _timeFormat.asStateFlow()
+
     private val _updateAvailableInfo = MutableStateFlow<AppReleaseInfo?>(null)
     val updateAvailableInfo: StateFlow<AppReleaseInfo?> = _updateAvailableInfo.asStateFlow()
 
@@ -54,6 +63,7 @@ class AppViewModel @Inject constructor(
                 _dynamicColorEnabled.value = it.dynamicColorEnabled
                 _accentColor.value = it.accentColor
                 _navBarStyle.value = it.navBarStyle
+                _timeFormat.value = it.timeFormat
             }
         }
         viewModelScope.launch {
@@ -67,6 +77,11 @@ class AppViewModel @Inject constructor(
                 .map { it.autoCheckUpdates }
                 .distinctUntilChanged()
                 .collect { enabled -> updateCheckScheduler.reschedule(enabled) }
+        }
+        viewModelScope.launch {
+            settingsRepository.settings.map { it.timeFormat }.distinctUntilChanged().collect {
+                UpcomingClassesWidget().updateAll(context)
+            }
         }
         viewModelScope.launch {
             reminderScheduler.scheduleTodayReminders()

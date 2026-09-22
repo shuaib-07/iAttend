@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.ui.AvatarImage
+import com.iattend.app.core.ui.ProgressRing
 import com.iattend.app.feature.profile.ProfileViewModel
 import java.time.LocalTime
 
@@ -29,14 +30,21 @@ import java.time.LocalTime
  * animation, so it tracks the finger 1:1 like a parallax list header.
  */
 @Composable
-fun GreetingRow(collapseFraction: Float, modifier: Modifier = Modifier, viewModel: ProfileViewModel = hiltViewModel()) {
+fun GreetingRow(
+    collapseFraction: Float,
+    attendancePercentage: Float,
+    hasMarkedClasses: Boolean,
+    requiredPercentage: Float,
+    modifier: Modifier = Modifier,
+    viewModel: ProfileViewModel = hiltViewModel()
+) {
     val name by viewModel.name.collectAsState()
     val pictureUri by viewModel.pictureUri.collectAsState()
     val greeting = remember { timeOfDayGreeting() }
 
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         AvatarImage(pictureUri = pictureUri, size = 40.dp)
-        Column(modifier = Modifier.padding(start = 12.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
             Text(name.ifBlank { "You" }, style = MaterialTheme.typography.titleMedium)
             Box(
                 modifier = Modifier
@@ -51,6 +59,13 @@ fun GreetingRow(collapseFraction: Float, modifier: Modifier = Modifier, viewMode
                 )
             }
         }
+        ProgressRing(
+            percentage = attendancePercentage,
+            aboveThreshold = !hasMarkedClasses || attendancePercentage >= requiredPercentage,
+            size = 60.dp,
+            strokeWidth = 5.dp,
+            textStyle = MaterialTheme.typography.labelMedium
+        )
     }
 }
 

@@ -15,6 +15,7 @@ import com.iattend.app.core.data.db.Assessment
 import com.iattend.app.core.data.db.AssessmentType
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.Subject
+import com.iattend.app.core.datastore.TimeFormat
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
 import java.time.LocalDate
@@ -70,7 +71,7 @@ fun ensureReminderChannel(context: Context) {
 }
 
 /** Builds and posts the "class starting soon" notification with inline Present/Absent actions. */
-fun showClassReminderNotification(context: Context, occurrence: ClassOccurrence, subjectName: String) {
+fun showClassReminderNotification(context: Context, occurrence: ClassOccurrence, subjectName: String, timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR) {
     val openIntent = PendingIntent.getActivity(
         context,
         occurrence.id.toInt(),
@@ -78,14 +79,15 @@ fun showClassReminderNotification(context: Context, occurrence: ClassOccurrence,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    val whenText = occurrence.startTime?.let(::formatTime)?.let { time ->
+    val whenText = occurrence.startTime?.let { formatTime(it, timeFormat) }?.let { time ->
         if (occurrence.date == LocalDate.now()) time else "${formatDateShort(occurrence.date)}, $time"
     } ?: ""
 
+    val location = occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { " • Room $it" }.orEmpty()
     val notification = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(subjectName)
-        .setContentText("Starts at $whenText - mark your attendance")
+        .setContentText("Starts at $whenText$location - mark your attendance")
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setAutoCancel(true)
         .setContentIntent(openIntent)
@@ -108,8 +110,9 @@ fun showClassEndNotification(context: Context, occurrence: ClassOccurrence, subj
     )
     val typeLabel = occurrence.classType.pluralLabel
     val title = "${subject.name} (${subject.code}) - $typeLabel" + (subject.teacherName?.let { " by $it" } ?: "")
-    val text = classesCanSkip?.let { "Can miss up to $it more $typeLabel${if (it == 1) "" else "s"}." }
-        ?: "Mark your attendance for this class."
+    val room = occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { " Room $it." }.orEmpty()
+    val text = classesCanSkip?.let { "Can miss up to $it more $typeLabel${if (it == 1) "" else "s"}.$room" }
+        ?: "Mark your attendance for this class.$room"
 
     val notification = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_notification)
@@ -127,7 +130,7 @@ fun showClassEndNotification(context: Context, occurrence: ClassOccurrence, subj
 }
 
 /** Test and Exam get distinct title/copy ("specialised notifications") though they share a channel and builder. */
-fun showAssessmentReminderNotification(context: Context, assessment: Assessment, subjectName: String) {
+fun showAssessmentReminderNotification(context: Context, assessment: Assessment, subjectName: String, timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR) {
     val openIntent = PendingIntent.getActivity(
         context,
         assessment.id.toInt(),
@@ -137,7 +140,7 @@ fun showAssessmentReminderNotification(context: Context, assessment: Assessment,
     val label = assessment.title?.takeIf { it.isNotBlank() }
         ?: "$subjectName ${if (assessment.type == AssessmentType.EXAM) "Exam" else "Test"}"
     val title = if (assessment.type == AssessmentType.EXAM) "Upcoming exam: $label" else "Upcoming test: $label"
-    var timeRange = "${formatTime(assessment.startTime)} - ${formatTime(assessment.endTime)}"
+    var timeRange = "${formatTime(assessment.startTime, timeFormat)} - ${formatTime(assessment.endTime, timeFormat)}"
     if (assessment.date != LocalDate.now()) timeRange = "${formatDateShort(assessment.date)}, $timeRange"
     val text = "$subjectName - $timeRange" + (assessment.totalMarks?.let { " - $it marks" } ?: "")
 

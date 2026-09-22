@@ -36,6 +36,7 @@ import com.iattend.app.core.data.db.AssessmentType
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
+import com.iattend.app.core.ui.LocalTimeFormat
 import com.iattend.app.core.ui.hapticClick
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,7 +89,7 @@ private fun AssessmentRow(assessment: Assessment, onClick: () -> Unit, modifier:
             Box(modifier = Modifier.size(12.dp).background(typeColor, CircleShape))
             Column(modifier = Modifier.weight(1f)) {
                 Text(assessment.title?.takeIf { it.isNotBlank() } ?: assessment.type.name)
-                val dateText = "${formatDateShort(assessment.date)} - ${formatTime(assessment.startTime)} to ${formatTime(assessment.endTime)}"
+                val dateText = "${formatDateShort(assessment.date)} - ${formatTime(assessment.startTime, LocalTimeFormat.current)} to ${formatTime(assessment.endTime, LocalTimeFormat.current)}"
                 Text(dateText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             assessment.totalMarks?.let { Text("$it marks", style = MaterialTheme.typography.bodySmall) }

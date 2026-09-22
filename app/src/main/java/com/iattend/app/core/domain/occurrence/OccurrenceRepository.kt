@@ -93,10 +93,16 @@ class OccurrenceRepository @Inject constructor(
             versions = versions,
             slotsByVersion = slotsByVersion,
             holidays = holidays,
-            recurringRules = rules
+            recurringRules = rules,
+            subjectsById = subjectDao.getAllOnce().associateBy { it.id }
         ).filterNot { Triple(it.date, it.subjectId, it.startTime) in markedKeys }
 
         classOccurrenceDao.insertAll(generated)
+        reminderScheduler.scheduleTodayReminders()
+    }
+
+    suspend fun refreshInheritedRooms(subjectId: Long, room: String?) {
+        classOccurrenceDao.updateInheritedRooms(subjectId, room?.trim()?.ifBlank { null })
         reminderScheduler.scheduleTodayReminders()
     }
 

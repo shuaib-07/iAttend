@@ -7,6 +7,7 @@ import com.iattend.app.core.datastore.BackupFrequency
 import com.iattend.app.core.datastore.NavBarStyle
 import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.datastore.ThemeMode
+import com.iattend.app.core.datastore.TimeFormat
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import com.iattend.app.core.notifications.ClassReminderScheduler
 import com.iattend.app.core.notifications.ReminderOffset
@@ -42,6 +43,10 @@ class SettingsViewModel @Inject constructor(
     val dynamicColorEnabled: StateFlow<Boolean> = settingsRepository.settings
         .map { it.dynamicColorEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val timeFormat: StateFlow<TimeFormat> = settingsRepository.settings
+        .map { it.timeFormat }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TimeFormat.TWELVE_HOUR)
 
     val trackingStartDate: StateFlow<LocalDate?> = settingsRepository.settings
         .map { it.trackingStartDate }
@@ -85,6 +90,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setRequiredPercentage(value: Float) {
         viewModelScope.launch { settingsRepository.setRequiredPercentageDefault(value) }
+    }
+
+    fun setTimeFormat(format: TimeFormat) {
+        viewModelScope.launch { settingsRepository.setTimeFormat(format) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

@@ -11,13 +11,16 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import com.iattend.app.core.ui.pickers.CashiroTimePickerDialog
+import com.iattend.app.core.datastore.TimeFormat
 import java.time.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,15 +32,24 @@ fun TimePickerField(
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    var dialogFormat by remember { mutableStateOf(TimeFormat.TWELVE_HOUR) }
+    var dialogHour by remember { mutableIntStateOf(9) }
+    var dialogMinute by remember { mutableIntStateOf(0) }
+    val savedFormat = LocalTimeFormat.current
     val interactionSource = remember { MutableInteractionSource() }
-    LaunchedEffect(interactionSource) {
+    LaunchedEffect(interactionSource, savedFormat, time) {
         interactionSource.interactions.collect { interaction ->
-            if (interaction is PressInteraction.Release) showDialog = true
+            if (interaction is PressInteraction.Release) {
+                dialogFormat = savedFormat
+                dialogHour = time?.hour ?: 9
+                dialogMinute = time?.minute ?: 0
+                showDialog = true
+            }
         }
     }
 
     OutlinedTextField(
-        value = time?.let(::formatTime) ?: "",
+        value = time?.let { formatTime(it, savedFormat) } ?: "",
         onValueChange = {},
         readOnly = true,
         label = { Text(label) },
@@ -46,16 +58,22 @@ fun TimePickerField(
     )
 
     if (showDialog) {
-        val initial = time ?: LocalTime.of(9, 0)
-        // Forced 12h per spec #3
-        val state = rememberTimePickerState(initialHour = initial.hour, initialMinute = initial.minute, is24Hour = false)
-        CashiroTimePickerDialog(
-            onDismiss = { showDialog = false },
-            onConfirm = {
-                onTimeChange(LocalTime.of(state.hour, state.minute))
-                showDialog = false
-            },
-            timePickerState = state
-        )
+        key(dialogFormat) {
+            val state = rememberTimePickerState(initialHour = dialogHour, initialMinute = dialogMinute, is24Hour = dialogFormat == TimeFormat.TWENTY_FOUR_HOUR)
+            CashiroTimePickerDialog(
+                onDismiss = { showDialog = false },
+                onConfirm = {
+                    onTimeChange(LocalTime.of(state.hour, state.minute))
+                    showDialog = false
+                },
+                timePickerState = state,
+                format = dialogFormat,
+                onFormatChange = {
+                    dialogHour = state.hour
+                    dialogMinute = state.minute
+                    dialogFormat = it
+                }
+            )
+        }
     }
 }

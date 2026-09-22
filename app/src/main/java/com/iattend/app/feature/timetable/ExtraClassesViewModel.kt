@@ -1,10 +1,12 @@
 package com.iattend.app.feature.timetable
 
 import androidx.lifecycle.SavedStateHandle
+import androidx.room.withTransaction
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.iattend.app.core.data.db.ClassOccurrence
+import com.iattend.app.core.data.db.AppDatabase
 import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.ClassType
 import com.iattend.app.core.data.db.OccurrenceSource
@@ -39,12 +41,15 @@ data class ExtraClassForm(
     val startTime: LocalTime = LocalTime.of(9, 0),
     val endTime: LocalTime = LocalTime.of(10, 0),
     val room: String = "",
+    val roomOverridden: Boolean = false,
+    val setSubjectDefaultRoom: Boolean = false,
     val classType: ClassType = ClassType.LECTURE,
     val editingOccurrenceId: Long? = null
 )
 
 @HiltViewModel
 class ExtraClassesViewModel @Inject constructor(
+    private val db: AppDatabase,
     private val classOccurrenceDao: ClassOccurrenceDao,
     private val subjectDao: SubjectDao,
     private val reminderScheduler: ClassReminderScheduler,
@@ -91,28 +96,42 @@ class ExtraClassesViewModel @Inject constructor(
                 }
             }
             subjects.collect { list ->
-                if (_form.value.subjectId == null) _form.update { it.copy(subjectId = list.firstOrNull()?.id) }
+                if (_form.value.subjectId == null) {
+                    val subject = list.firstOrNull()
+                    _form.update { it.copy(subjectId = subject?.id, room = subject?.defaultRoomNumber.orEmpty()) }
+                }
             }
         }
     }
 
     fun onDateChange(date: LocalDate) { _form.update { it.copy(date = date) } }
-    fun onSubjectChange(id: Long) { _form.update { it.copy(subjectId = id) } }
+    fun onSubjectChange(id: Long) {
+        if (_form.value.subjectId == id) return
+        val default = subjects.value.firstOrNull { it.id == id }?.defaultRoomNumber.orEmpty()
+        _form.update { it.copy(subjectId = id, room = default, roomOverridden = false, setSubjectDefaultRoom = false) }
+    }
     fun onStartTimeChange(time: LocalTime) { _form.update { it.copy(startTime = time) } }
     fun onEndTimeChange(time: LocalTime) { _form.update { it.copy(endTime = time) } }
-    fun onRoomChange(value: String) { _form.update { it.copy(room = value) } }
+    fun onRoomChange(value: String) { _form.update { it.copy(room = value, roomOverridden = true) } }
+    fun resetRoomToDefault() {
+        val subject = subjects.value.firstOrNull { it.id == _form.value.subjectId }
+        _form.update { it.copy(room = subject?.defaultRoomNumber.orEmpty(), roomOverridden = false) }
+    }
+    fun setSubjectDefaultRoom(enabled: Boolean) { _form.update { it.copy(setSubjectDefaultRoom = enabled) } }
     fun onClassTypeChange(type: ClassType) { _form.update { it.copy(classType = type) } }
 
     private var editingOriginal: ClassOccurrence? = null
 
     fun startEdit(occurrence: ClassOccurrence) {
         editingOriginal = occurrence
+        val historical = occurrence.status != OccurrenceStatus.UNMARKED
         val editForm = ExtraClassForm(
             date = occurrence.date,
             subjectId = occurrence.subjectId,
             startTime = occurrence.startTime ?: LocalTime.of(9, 0),
             endTime = occurrence.endTime ?: LocalTime.of(10, 0),
-            room = occurrence.roomNumber ?: "",
+            room = if (historical) occurrence.roomNumber.orEmpty() else occurrence.roomNumber ?: subjects.value.firstOrNull { it.id == occurrence.subjectId }?.defaultRoomNumber.orEmpty(),
+            roomOverridden = occurrence.roomNumberOverridden || historical,
             classType = occurrence.classType,
             editingOccurrenceId = occurrence.id
         )
@@ -123,7 +142,8 @@ class ExtraClassesViewModel @Inject constructor(
     fun cancelEdit() {
         editingOriginal = null
         _editingOriginalForm.value = null
-        _form.update { it.copy(room = "", editingOccurrenceId = null) }
+        val defaultRoom = subjects.value.firstOrNull { it.id == _form.value.subjectId }?.defaultRoomNumber.orEmpty()
+        _form.update { it.copy(room = defaultRoom, roomOverridden = false, setSubjectDefaultRoom = false, editingOccurrenceId = null) }
     }
 
     fun schedule() {
@@ -131,35 +151,52 @@ class ExtraClassesViewModel @Inject constructor(
         val subjectId = f.subjectId ?: return
         viewModelScope.launch {
             val original = editingOriginal
-            if (original != null && original.id == f.editingOccurrenceId) {
-                classOccurrenceDao.update(
-                    original.copy(
-                        subjectId = subjectId,
-                        date = f.date,
-                        startTime = f.startTime,
-                        endTime = f.endTime,
-                        roomNumber = f.room.trim().ifBlank { null },
-                        classType = f.classType
+            var effectiveDefaultAfterSave: String? = null
+            val saved = db.withTransaction {
+                val subject = subjectDao.getByIdOnce(subjectId) ?: return@withTransaction false
+                val defaultValue = if (f.roomOverridden) f.room.trim().ifBlank { null } else subject.defaultRoomNumber
+                effectiveDefaultAfterSave = if (f.setSubjectDefaultRoom) defaultValue else subject.defaultRoomNumber
+                if (f.setSubjectDefaultRoom && defaultValue != subject.defaultRoomNumber) {
+                    subjectDao.update(subject.copy(defaultRoomNumber = defaultValue))
+                    classOccurrenceDao.updateInheritedRooms(subjectId, defaultValue)
+                }
+                val roomValue = if (f.roomOverridden) f.room.trim().ifBlank { null } else defaultValue
+                if (original != null && original.id == f.editingOccurrenceId) {
+                    classOccurrenceDao.update(
+                        original.copy(
+                            subjectId = subjectId,
+                            date = f.date,
+                            startTime = f.startTime,
+                            endTime = f.endTime,
+                            roomNumber = roomValue,
+                            roomNumberOverridden = f.roomOverridden,
+                            classType = f.classType
+                        )
                     )
-                )
+                } else {
+                    classOccurrenceDao.insert(
+                        ClassOccurrence(
+                            subjectId = subjectId,
+                            date = f.date,
+                            startTime = f.startTime,
+                            endTime = f.endTime,
+                            status = OccurrenceStatus.UNMARKED,
+                            source = OccurrenceSource.EXTRA,
+                            timetableSlotId = null,
+                            roomNumber = roomValue,
+                            roomNumberOverridden = f.roomOverridden,
+                            classType = f.classType
+                        )
+                    )
+                }
+                true
+            }
+            if (!saved) return@launch
+            if (original != null && original.id == f.editingOccurrenceId) {
                 editingOriginal = null
                 _editingOriginalForm.value = null
-            } else {
-                classOccurrenceDao.insert(
-                    ClassOccurrence(
-                        subjectId = subjectId,
-                        date = f.date,
-                        startTime = f.startTime,
-                        endTime = f.endTime,
-                        status = OccurrenceStatus.UNMARKED,
-                        source = OccurrenceSource.EXTRA,
-                        timetableSlotId = null,
-                        roomNumber = f.room.trim().ifBlank { null },
-                        classType = f.classType
-                    )
-                )
             }
-            _form.update { it.copy(room = "", editingOccurrenceId = null) }
+            _form.update { it.copy(room = effectiveDefaultAfterSave.orEmpty(), roomOverridden = false, setSubjectDefaultRoom = false, editingOccurrenceId = null) }
             _editingOriginalForm.value = null
             reminderScheduler.scheduleTodayReminders()
             UpcomingClassesWidget().updateAll(context)

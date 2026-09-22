@@ -10,6 +10,7 @@ import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.datastore.SettingsRepository
+import com.iattend.app.core.datastore.CalendarViewMode
 import com.iattend.app.core.domain.stats.AttendanceStatsCalculator
 import com.iattend.app.core.notifications.ClassReminderScheduler
 import android.content.Context
@@ -22,10 +23,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.YearMonth
 import javax.inject.Inject
 
 data class DayOccurrenceRow(
@@ -44,10 +49,35 @@ class CalendarViewModel @Inject constructor(
     private val reminderScheduler: ClassReminderScheduler,
     @ApplicationContext private val context: Context,
     subjectDao: SubjectDao,
-    settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
+
+    val viewMode: StateFlow<CalendarViewMode> = settingsRepository.calendarViewMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CalendarViewMode.WEEK)
+
+    private val minuteTicks = flow {
+        while (true) {
+            emit(Unit)
+            delay(60_000)
+        }
+    }
+
+    val attendanceStatusByDate: StateFlow<Map<LocalDate, OccurrenceStatus>> = combine(
+        classOccurrenceDao.getAll(), minuteTicks
+    ) { occurrences, _ ->
+            val today = LocalDate.now()
+            val now = LocalTime.now()
+            occurrences.groupBy { it.date }.mapNotNull { (date, rows) ->
+                attendanceStatusForDay(rows, today, now)?.let { date to it }
+            }.toMap()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    val monthAttendancePercentage: StateFlow<Float?> = combine(_selectedDate, classOccurrenceDao.getAll()) { date, occurrences ->
+        attendancePercentageForMonth(occurrences, YearMonth.from(date))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val isPast: StateFlow<Boolean> = selectedDate
         .map { !it.isAfter(LocalDate.now()) }
@@ -102,8 +132,19 @@ class CalendarViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     fun selectDate(date: LocalDate) { _selectedDate.value = date }
+    fun setViewMode(mode: CalendarViewMode) {
+        viewModelScope.launch { settingsRepository.setCalendarViewMode(mode) }
+    }
     fun previousWeek() { _selectedDate.value = _selectedDate.value.minusWeeks(1) }
     fun nextWeek() { _selectedDate.value = _selectedDate.value.plusWeeks(1) }
+    fun previousMonth() { shiftMonth(-1) }
+    fun nextMonth() { shiftMonth(1) }
+
+    private fun shiftMonth(amount: Long) {
+        val date = _selectedDate.value
+        val month = date.plusMonths(amount)
+        _selectedDate.value = month.withDayOfMonth(minOf(date.dayOfMonth, month.lengthOfMonth()))
+    }
 
     fun mark(occurrence: ClassOccurrence, status: OccurrenceStatus) {
         if (occurrence.date.isAfter(LocalDate.now())) return

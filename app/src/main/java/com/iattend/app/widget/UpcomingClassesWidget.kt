@@ -23,6 +23,8 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.getAppWidgetState
@@ -102,7 +104,7 @@ class UpcomingClassesWidget : GlanceAppWidget() {
             val occurrences = occurrencesByDate[targetDate].orEmpty()
                 .sortedWith(compareBy({ it.startTime }, { it.id }))
 
-            WidgetContent(targetDate, today, dayOffset, occurrences, subjectsById, palette)
+            WidgetContent(targetDate, today, dayOffset, occurrences, subjectsById, palette, settings.timeFormat)
         }
     }
 }
@@ -160,7 +162,8 @@ private fun WidgetContent(
     dayOffset: Int,
     occurrences: List<ClassOccurrence>,
     subjectsById: Map<Long, Subject>,
-    palette: WidgetPalette
+    palette: WidgetPalette,
+    timeFormat: com.iattend.app.core.datastore.TimeFormat
 ) {
     val context = LocalContext.current
     val openAppIntent = actionStartActivity(Intent(context, MainActivity::class.java))
@@ -249,14 +252,20 @@ private fun WidgetContent(
                 )
             }
         } else {
-            Column(
+            LazyColumn(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .clickable(openAppIntent)
+                    .defaultWeight()
             ) {
-                occurrences.take(7).forEach { occurrence ->
-                    ClassRow(occurrence, subjectsById[occurrence.subjectId], palette)
-                    Spacer(modifier = GlanceModifier.height(5.dp))
+                items(occurrences) { occurrence ->
+                    Column(
+                        modifier = GlanceModifier
+                            .fillMaxWidth()
+                            .clickable(openAppIntent)
+                    ) {
+                        ClassRow(occurrence, subjectsById[occurrence.subjectId], palette, timeFormat)
+                        Spacer(modifier = GlanceModifier.height(5.dp))
+                    }
                 }
             }
         }
@@ -264,7 +273,12 @@ private fun WidgetContent(
 }
 
 @Composable
-private fun ClassRow(occurrence: ClassOccurrence, subject: Subject?, palette: WidgetPalette) {
+private fun ClassRow(
+    occurrence: ClassOccurrence,
+    subject: Subject?,
+    palette: WidgetPalette,
+    timeFormat: com.iattend.app.core.datastore.TimeFormat
+) {
     val isPresent = occurrence.status == OccurrenceStatus.PRESENT
     val isAbsent = occurrence.status == OccurrenceStatus.ABSENT
     val isCancelled = occurrence.status == OccurrenceStatus.CANCELLED
@@ -341,9 +355,9 @@ private fun ClassRow(occurrence: ClassOccurrence, subject: Subject?, palette: Wi
             }
 
             val timeRange = occurrence.startTime?.let { start ->
-                formatTime(start) + (occurrence.endTime?.let { " - ${formatTime(it)}" } ?: "")
+                formatTime(start, timeFormat) + (occurrence.endTime?.let { " - ${formatTime(it, timeFormat)}" } ?: "")
             } ?: ""
-            val subtitle = timeRange + (subject?.teacherName?.let { " • $it" } ?: "")
+            val subtitle = listOfNotNull(timeRange.takeIf { it.isNotBlank() }, subject?.teacherName).joinToString(" • ")
             Text(
                 subtitle,
                 style = TextStyle(
@@ -352,6 +366,12 @@ private fun ClassRow(occurrence: ClassOccurrence, subject: Subject?, palette: Wi
                     textDecoration = if (isCancelled) TextDecoration.LineThrough else TextDecoration.None
                 )
             )
+            occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { room ->
+                Text(
+                    "Room $room",
+                    style = TextStyle(fontSize = 10.sp, color = palette.onBackgroundVariant)
+                )
+            }
         }
 
         // Status Indicators on the trailing side

@@ -1,6 +1,7 @@
 package com.iattend.app.feature.calendar
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,16 +21,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,13 +69,16 @@ import com.iattend.app.core.data.db.AssessmentType
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
+import com.iattend.app.core.datastore.CalendarViewMode
 import com.iattend.app.core.ui.ProgressRing
 import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
+import com.iattend.app.core.ui.LocalTimeFormat
 import com.iattend.app.core.ui.modalsheet.ModalSheet
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.util.Locale
@@ -82,6 +90,7 @@ private const val SWIPE_THRESHOLD_PX = 120f
 fun CalendarScreen(
     onAddExtra: (LocalDate) -> Unit,
     onEditExtra: (Long) -> Unit = {},
+    initialDate: String? = null,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val selectedDate by viewModel.selectedDate.collectAsState()
@@ -90,9 +99,16 @@ fun CalendarScreen(
     val isPast by viewModel.isPast.collectAsState()
     val assessmentRows by viewModel.assessmentsForSelectedDate.collectAsState()
     val assessmentDatesInWeek by viewModel.assessmentDatesInWeek.collectAsState()
+    val attendanceStatusByDate by viewModel.attendanceStatusByDate.collectAsState()
+    val monthAttendancePercentage by viewModel.monthAttendancePercentage.collectAsState()
+    val viewMode by viewModel.viewMode.collectAsState()
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedExtraForMenu by remember { mutableStateOf<DayOccurrenceRow?>(null) }
     var occurrenceToDelete by remember { mutableStateOf<ClassOccurrence?>(null) }
+
+    LaunchedEffect(initialDate) {
+        initialDate?.let { runCatching { LocalDate.parse(it) }.getOrNull()?.let(viewModel::selectDate) }
+    }
 
     Column(
         modifier = Modifier
@@ -105,8 +121,9 @@ fun CalendarScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault()),
-                style = MaterialTheme.typography.titleLarge
+                "${selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${selectedDate.year}",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
             )
             Row {
                 IconButton(onClick = { onAddExtra(selectedDate) }) {
@@ -115,42 +132,69 @@ fun CalendarScreen(
                 IconButton(onClick = { showDatePicker = true }) {
                     Icon(Icons.Default.CalendarMonth, contentDescription = "Jump to date")
                 }
-            }
-        }
-
-        var dragAccum by remember { mutableFloatStateOf(0f) }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = viewModel::previousWeek) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Previous week")
-            }
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .pointerInputDragWeek(
-                        onDragDelta = { dragAccum += it },
-                        onDragEnd = {
-                            if (dragAccum <= -SWIPE_THRESHOLD_PX) viewModel.nextWeek()
-                            else if (dragAccum >= SWIPE_THRESHOLD_PX) viewModel.previousWeek()
-                            dragAccum = 0f
-                        }
-                    ),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                visibleWeek.forEach { date ->
-                    WeekDayCell(
-                        date = date,
-                        selected = date == selectedDate,
-                        hasAssessment = date in assessmentDatesInWeek,
-                        onClick = { viewModel.selectDate(date) },
-                        modifier = Modifier.weight(1f)
+                IconButton(onClick = {
+                    viewModel.setViewMode(if (viewMode == CalendarViewMode.WEEK) CalendarViewMode.MONTH else CalendarViewMode.WEEK)
+                }) {
+                    Icon(
+                        if (viewMode == CalendarViewMode.WEEK) Icons.Default.GridView else Icons.Default.ViewWeek,
+                        contentDescription = if (viewMode == CalendarViewMode.WEEK) "Switch to month view" else "Switch to week view"
                     )
                 }
             }
-            IconButton(onClick = viewModel::nextWeek) {
-                Icon(Icons.Default.ArrowForward, contentDescription = "Next week")
+        }
+
+        if (viewMode == CalendarViewMode.WEEK) {
+            var dragAccum by remember { mutableFloatStateOf(0f) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = viewModel::previousWeek) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous week")
+                }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInputDragWeek(
+                            onDragDelta = { dragAccum += it },
+                            onDragEnd = {
+                                if (dragAccum <= -SWIPE_THRESHOLD_PX) viewModel.nextWeek()
+                                else if (dragAccum >= SWIPE_THRESHOLD_PX) viewModel.previousWeek()
+                                dragAccum = 0f
+                            }
+                        ),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    visibleWeek.forEach { date ->
+                        WeekDayCell(
+                            date = date,
+                            selected = date == selectedDate,
+                            hasAssessment = date in assessmentDatesInWeek,
+                            onClick = { viewModel.selectDate(date) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                IconButton(onClick = viewModel::nextWeek) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next week")
+                }
+            }
+        } else {
+            MonthCalendarGrid(
+                selectedDate = selectedDate,
+                attendanceStatusByDate = attendanceStatusByDate,
+                attendancePercentage = monthAttendancePercentage,
+                onDateSelected = viewModel::selectDate,
+                onPreviousMonth = viewModel::previousMonth,
+                onNextMonth = viewModel::nextMonth
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Schedule · ${selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())}, ${formatDateShort(selectedDate)}", style = MaterialTheme.typography.titleSmall)
+                Text("${rows.size} ${if (rows.size == 1) "class" else "classes"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -220,8 +264,8 @@ fun CalendarScreen(
                         )
                         Text(
                             text = "${formatDateShort(extraRow.occurrence.date)}  ·  " +
-                                "${extraRow.occurrence.startTime?.let(::formatTime) ?: "?"} - ${extraRow.occurrence.endTime?.let(::formatTime) ?: "?"}" +
-                                (extraRow.occurrence.roomNumber?.let { "  · $it" } ?: ""),
+                                "${extraRow.occurrence.startTime?.let { formatTime(it, LocalTimeFormat.current) } ?: "?"} - ${extraRow.occurrence.endTime?.let { formatTime(it, LocalTimeFormat.current) } ?: "?"}" +
+                                (extraRow.occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { "  · Room $it" } ?: ""),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -305,6 +349,103 @@ fun CalendarScreen(
     }
 }
 
+@Composable
+private fun MonthCalendarGrid(
+    selectedDate: LocalDate,
+    attendanceStatusByDate: Map<LocalDate, OccurrenceStatus>,
+    attendancePercentage: Float?,
+    onDateSelected: (LocalDate) -> Unit,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit
+) {
+    val month = YearMonth.from(selectedDate)
+    val firstDate = month.atDay(1)
+    val gridStart = firstDate.minusDays((firstDate.dayOfWeek.value % 7).toLong())
+    val weekCount = ((firstDate.dayOfWeek.value % 7) + month.lengthOfMonth() + 6) / 7
+    val dates = (0 until weekCount * 7).map { gridStart.plusDays(it.toLong()) }
+    val weekdays = listOf(
+        java.time.DayOfWeek.SUNDAY, java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
+        java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY, java.time.DayOfWeek.FRIDAY,
+        java.time.DayOfWeek.SATURDAY
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                attendancePercentage?.let { "${it.toInt()}% attendance" } ?: "Attendance —",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onPreviousMonth) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous month")
+            }
+            IconButton(onClick = onNextMonth) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next month")
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp)) {
+            weekdays.forEach { day ->
+                Text(
+                    day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        dates.chunked(7).forEach { week ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                week.forEach { date ->
+                    val status = attendanceStatusByDate[date]
+                    val inMonth = date.month == month.month && date.year == month.year
+                    val selected = date == selectedDate
+                    val today = date == LocalDate.now()
+                    val shape = MaterialTheme.shapes.medium
+                    val statusColor = when (status) {
+                        OccurrenceStatus.UNMARKED -> Color(0xFFFFE4A8)
+                        OccurrenceStatus.ABSENT -> Color(0xFFFFC9C9)
+                        OccurrenceStatus.PRESENT -> Color(0xFFC9EFD2)
+                        OccurrenceStatus.CANCELLED -> Color(0xFFE1E4E8)
+                        null -> if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                    }
+                    val numberColor = when {
+                        status != null -> Color(0xFF202124)
+                        selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                        today -> MaterialTheme.colorScheme.primary
+                        inMonth -> MaterialTheme.colorScheme.onSurface
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(2.dp)
+                            .height(44.dp)
+                            .clip(shape)
+                            .background(statusColor)
+                            .then(
+                                if (selected) Modifier.border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape)
+                                else if (today) Modifier.border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary), shape)
+                                else Modifier
+                            )
+                            .clickable { onDateSelected(date) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(date.dayOfMonth.toString(), color = numberColor, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun Modifier.pointerInputDragWeek(onDragDelta: (Float) -> Unit, onDragEnd: () -> Unit): Modifier =
     this.pointerInput(Unit) {
         detectHorizontalDragGestures(
@@ -363,7 +504,7 @@ private fun AssessmentCard(row: DayAssessmentRow, modifier: Modifier = Modifier)
     val subjectColor = row.subject?.let { Color(it.colorArgb) } ?: MaterialTheme.colorScheme.error
     Row(modifier = modifier.fillMaxWidth().padding(bottom = 16.dp)) {
         Column(modifier = Modifier.width(58.dp)) {
-            Text(formatTime(assessment.startTime), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+            Text(formatTime(assessment.startTime, LocalTimeFormat.current), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
         }
         Column(
             modifier = Modifier.width(16.dp).fillMaxHeight(),
@@ -420,10 +561,10 @@ private fun TimelineRow(
     ) {
         Column(modifier = Modifier.width(58.dp)) {
             occurrence.startTime?.let {
-                Text(formatTime(it), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+                Text(formatTime(it, LocalTimeFormat.current), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
             }
             occurrence.endTime?.let {
-                Text(formatTime(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                Text(formatTime(it, LocalTimeFormat.current), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
             }
         }
         Column(
@@ -514,6 +655,9 @@ private fun TimelineRow(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
+                    occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let {
+                        Text("Room $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 row.stats?.let { stats ->

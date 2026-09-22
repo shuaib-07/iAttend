@@ -8,6 +8,7 @@ import com.iattend.app.core.data.db.RecurringHolidayMode
 import com.iattend.app.core.data.db.RecurringHolidayRule
 import com.iattend.app.core.data.db.TimetableSlot
 import com.iattend.app.core.data.db.TimetableVersion
+import com.iattend.app.core.data.db.Subject
 import java.time.LocalDate
 
 /** Backdated-fill strategies for a subject's occurrences in a past date range (Product Plan §3.5). */
@@ -59,7 +60,8 @@ object OccurrenceGenerator {
         versions: List<TimetableVersion>,
         slotsByVersion: Map<Long, List<TimetableSlot>>,
         holidays: List<Holiday>,
-        recurringRules: List<RecurringHolidayRule>
+        recurringRules: List<RecurringHolidayRule>,
+        subjectsById: Map<Long, Subject> = emptyMap()
     ): List<ClassOccurrence> {
         if (dateRange.isEmpty()) return emptyList()
 
@@ -80,8 +82,9 @@ object OccurrenceGenerator {
                             source = OccurrenceSource.SCHEDULED,
                             timetableSlotId = slot.id,
                             classCount = slot.classCount,
-                            roomNumber = slot.roomNumber,
-                            classType = slot.classType
+                            roomNumber = if (slot.roomNumberOverridden || slot.roomNumber != null) slot.roomNumber else subjectsById[slot.subjectId]?.defaultRoomNumber,
+                            classType = slot.classType,
+                            roomNumberOverridden = slot.roomNumberOverridden || slot.roomNumber != null
                         )
                     }
                 }

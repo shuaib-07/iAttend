@@ -32,6 +32,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private fun String?.normalizedRoom(): String? = this?.trim()?.ifBlank { null }
+
 /** Full local-DB snapshot (Product Plan §11): every entity table plus Settings/Profile. */
 @Serializable
 data class ExportPayload(
@@ -87,6 +89,7 @@ class ExportImportRepository @Inject constructor(
 
     suspend fun export(): String = json.encodeToString(
         ExportPayload(
+            exportVersion = 2,
             subjects = subjectDao.getAllOnce(),
             timetableVersions = timetableVersionDao.getAllOnce(),
             timetableSlots = timetableSlotDao.getAllOnce(),
@@ -102,12 +105,19 @@ class ExportImportRepository @Inject constructor(
     /** Replaces the local DB wholesale (Product Plan §11: no field-level merge in v1). */
     suspend fun import(jsonText: String) {
         val payload = json.decodeFromString<ExportPayload>(jsonText)
+        val importedSubjects = payload.subjects.map { it.copy(defaultRoomNumber = it.defaultRoomNumber.normalizedRoom()) }
+        val importedSlots = payload.timetableSlots.map {
+            it.copy(roomNumber = it.roomNumber.normalizedRoom(), roomNumberOverridden = if (payload.exportVersion < 2) it.roomNumber != null else it.roomNumberOverridden)
+        }
+        val importedOccurrences = payload.classOccurrences.map {
+            it.copy(roomNumber = it.roomNumber.normalizedRoom(), roomNumberOverridden = if (payload.exportVersion < 2) it.roomNumber != null else it.roomNumberOverridden)
+        }
         db.withTransaction {
             db.clearAllTables()
-            subjectDao.insertAll(payload.subjects)
+            subjectDao.insertAll(importedSubjects)
             timetableVersionDao.insertAll(payload.timetableVersions)
-            timetableSlotDao.insertAll(payload.timetableSlots)
-            classOccurrenceDao.insertAll(payload.classOccurrences)
+            timetableSlotDao.insertAll(importedSlots)
+            classOccurrenceDao.insertAll(importedOccurrences)
             holidayDao.insertAll(payload.holidays)
             recurringHolidayRuleDao.upsertAll(payload.recurringHolidayRules)
             if (payload.assessments.isNotEmpty()) assessmentDao.insertAll(payload.assessments)
@@ -137,6 +147,7 @@ class ExportImportRepository @Inject constructor(
         } else emptyList()
         val settings = settingsRepository.settings.first()
         val payload = TemplatePayload(
+            templateVersion = 2,
             subjects = filteredSubjects,
             timetableVersions = timetableVersionDao.getAllOnce(),
             timetableSlots = filteredSlots,
@@ -160,7 +171,7 @@ class ExportImportRepository @Inject constructor(
             val subjectMap = mutableMapOf<Long, Long>()
             for (subject in payload.subjects) {
                 val oldId = subject.id
-                val newId = subjectDao.insert(subject.copy(id = 0))
+                val newId = subjectDao.insert(subject.copy(id = 0, defaultRoomNumber = subject.defaultRoomNumber.normalizedRoom()))
                 subjectMap[oldId] = newId
             }
             val versionMap = mutableMapOf<Long, Long>()
@@ -169,7 +180,11 @@ class ExportImportRepository @Inject constructor(
                 val newId = timetableVersionDao.insert(version.copy(id = 0))
                 versionMap[oldId] = newId
             }
-            val remappedSlots = payload.timetableSlots.map { slot ->
+            val remappedSlots = payload.timetableSlots.map { source ->
+                val slot = source.copy(
+                    roomNumber = source.roomNumber.normalizedRoom(),
+                    roomNumberOverridden = if (payload.templateVersion < 2) source.roomNumber != null else source.roomNumberOverridden
+                )
                 slot.copy(
                     id = 0,
                     timetableVersionId = versionMap[slot.timetableVersionId]
@@ -188,6 +203,9 @@ class ExportImportRepository @Inject constructor(
             if (payload.extraClasses.isNotEmpty()) {
                 val remappedExtras = payload.extraClasses.map { occ ->
                     occ.copy(
+                        roomNumber = occ.roomNumber.normalizedRoom(),
+                        roomNumberOverridden = if (payload.templateVersion < 2) occ.roomNumber != null else occ.roomNumberOverridden
+                    ).copy(
                         id = 0,
                         subjectId = subjectMap[occ.subjectId]
                             ?: error("Missing subject for extra ${occ.subjectId}"),

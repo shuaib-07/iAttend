@@ -48,7 +48,8 @@ fun ProgressRing(
     modifier: Modifier = Modifier,
     size: Dp = 96.dp,
     strokeWidth: Dp = 8.dp,
-    textStyle: TextStyle = MaterialTheme.typography.titleMedium
+    textStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    showPercentageText: Boolean = true
 ) {
     var targetFraction by remember { mutableFloatStateOf(0f) }
     var targetPercentage by remember { mutableFloatStateOf(0f) }
@@ -103,6 +104,8 @@ fun ProgressRing(
             stroke = stroke,
             trackStroke = stroke
         )
-        Text("${animatedPercentage.toInt()}%", style = textStyle, color = color)
+        if (showPercentageText) {
+            Text("${animatedPercentage.toInt()}%", style = textStyle, color = color)
+        }
     }
 }

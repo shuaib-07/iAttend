@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.iattend.app.core.datastore.NavBarStyle
+import com.iattend.app.core.ui.LocalTimeFormat
 import com.iattend.app.core.ui.BrandHeader
 import com.iattend.app.core.ui.modalsheet.ModalSheet
 import com.iattend.app.core.updates.UpdateAvailableModal
@@ -109,6 +110,7 @@ fun AppNavHost(startDestination: Any) {
     val appViewModel = hiltViewModel<AppViewModel>()
     val tutorialController = hiltViewModel<TutorialController>()
     val navBarStyle by appViewModel.navBarStyle.collectAsState()
+    val timeFormat by appViewModel.timeFormat.collectAsState()
     val updateAvailableInfo by appViewModel.updateAvailableInfo.collectAsState()
     val scaffoldBackground = MaterialTheme.colorScheme.surfaceContainer
     val backdropBackground = MaterialTheme.colorScheme.background
@@ -129,7 +131,7 @@ fun AppNavHost(startDestination: Any) {
     var headerHeightPx by remember { mutableStateOf(0) }
     val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
 
-    CompositionLocalProvider(LocalTutorialController provides tutorialController) {
+    CompositionLocalProvider(LocalTutorialController provides tutorialController, LocalTimeFormat provides timeFormat) {
     Box(modifier = Modifier.fillMaxSize().background(scaffoldBackground)) {
         Box(
             modifier = Modifier
@@ -190,7 +192,12 @@ fun AppNavHost(startDestination: Any) {
                                 onFinishedBackdated = { versionId -> navController.navigate(BackdatedFillRoute(versionId)) { popUpTo(0) } }
                             )
                         }
-                        composable<HomeRoute> { HomeScreen(onSubjectClick = { id -> navController.navigate(SubjectDetailRoute(id)) }) }
+                        composable<HomeRoute> {
+                            HomeScreen(
+                                onSubjectClick = { id -> navController.navigate(SubjectDetailRoute(id)) },
+                                onOpenCalendar = { date -> navController.navigate(CalendarRoute(date.toString())) { launchSingleTop = true } }
+                            )
+                        }
                         composable<SubjectDetailRoute> {
                             SubjectDetailScreen(
                                 onBack = { navController.popBackStack() },
@@ -214,10 +221,12 @@ fun AppNavHost(startDestination: Any) {
                                 onEdit = { subjectId, assessmentId -> navController.navigate(AssessmentEditorRoute(subjectId, assessmentId)) }
                             )
                         }
-                        composable<CalendarRoute> {
+                        composable<CalendarRoute> { entry ->
+                            val route = entry.toRoute<CalendarRoute>()
                             CalendarScreen(
                                 onAddExtra = { date -> navController.navigate(ExtraClassesRoute(prefillDate = date.toString())) },
-                                onEditExtra = { occurrenceId -> navController.navigate(ExtraClassesRoute(editOccurrenceId = occurrenceId)) }
+                                onEditExtra = { occurrenceId -> navController.navigate(ExtraClassesRoute(editOccurrenceId = occurrenceId)) },
+                                initialDate = route.selectedDate
                             )
                         }
                         composable<SettingsRoute> {

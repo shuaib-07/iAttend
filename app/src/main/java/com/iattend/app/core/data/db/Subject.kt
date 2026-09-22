@@ -23,5 +23,7 @@ data class Subject(
     /** COMPUTED mode only. Null = fall back to Settings.trackingEndDate (global default). */
     @Serializable(with = LocalDateSerializer::class) val trackingEndDateOverride: LocalDate? = null,
     /** Comma-separated minutes-before-class list. Null = fall back to Settings.classReminderDefaultOffsets. */
-    val reminderOffsetsOverride: String? = null
+    val reminderOffsetsOverride: String? = null,
+    /** Null means this subject has no default room. */
+    val defaultRoomNumber: String? = null
 )

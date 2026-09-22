@@ -7,6 +7,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,7 +24,9 @@ fun RoomComboBox(
     onValueChange: (String) -> Unit,
     options: List<String>,
     modifier: Modifier = Modifier,
-    label: String = "Room No (Optional)"
+    label: String = "Room No (Optional)",
+    inherited: Boolean = false,
+    supportingText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     val filtered = remember(value, options) {
@@ -39,6 +42,10 @@ fun RoomComboBox(
             value = value,
             onValueChange = { onValueChange(it); expanded = true },
             label = { Text(label) },
+            supportingText = supportingText?.let { { Text(it) } },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                color = if (inherited) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+            ),
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable, true)
         )
         ExposedDropdownMenu(
