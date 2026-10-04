@@ -70,6 +70,7 @@ import com.iattend.app.core.ui.DatePickerField
 import com.iattend.app.core.ui.DateRangePickerField
 import com.iattend.app.core.ui.ListItem
 import com.iattend.app.core.ui.ListItemPosition
+import com.iattend.app.core.ui.MorphingSaveButton
 import com.iattend.app.core.ui.ReminderOffsetPicker
 import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.SquircleIconButton
@@ -575,14 +576,14 @@ private fun RequiredPercentageSheetContent(requiredPercentage: Float, onChange: 
             label = { Text("Required %") },
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
         )
-        Button(
-            onClick = {
+        MorphingSaveButton(
+            onAction = {
                 text.toFloatOrNull()?.let(onChange)
-                onDismiss()
             },
             enabled = text.toFloatOrNull() != null,
+            onSuccess = onDismiss,
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
-        ) { Text("Save") }
+        )
     }
 }
 
@@ -619,13 +620,13 @@ private fun TrackingDateRangeSheetContent(
             DatePickerField(label = "Start", date = start, onDateChange = { start = it }, modifier = Modifier.weight(1f))
             DatePickerField(label = "End", date = end, onDateChange = { end = it }, modifier = Modifier.weight(1f))
         }
-        Button(
-            onClick = {
+        MorphingSaveButton(
+            onAction = {
                 onChange(start, end)
-                onDismiss()
             },
+            onSuccess = onDismiss,
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
-        ) { Text("Save") }
+        )
         TextButton(onClick = { start = null; end = null }, modifier = Modifier.fillMaxWidth()) { Text("Clear") }
     }
 }

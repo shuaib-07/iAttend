@@ -63,10 +63,13 @@ import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.SubjectChipRow
 import com.iattend.app.core.ui.TimePickerField
 import com.iattend.app.core.ui.LocalTimeFormat
+import com.iattend.app.core.ui.MorphingButtonState
+import com.iattend.app.core.ui.MorphingSaveButton
 import com.iattend.app.core.ui.formatTime
 import com.iattend.app.core.ui.hapticClick
 import com.iattend.app.core.ui.modalsheet.SideSheet
 import com.iattend.app.core.ui.rememberUnsavedChangesGuard
+import kotlinx.coroutines.delay
 import java.time.DayOfWeek
 import java.time.LocalTime
 
@@ -114,9 +117,41 @@ fun TimetableVersionEditorScreen(
             room = effectiveRoomForSubject(first?.id).orEmpty()
         }
     }
+    LaunchedEffect(state.initialDayOfWeek) {
+        state.initialDayOfWeek?.let { selectedDay = it }
+    }
+    LaunchedEffect(state.initialEditSlotLocalId, state.slots) {
+        val slotId = state.initialEditSlotLocalId ?: return@LaunchedEffect
+        val slot = state.slots.firstOrNull { it.localId == slotId } ?: return@LaunchedEffect
+        editingLocalId = slot.localId
+        selectedSubjectId = slot.subjectId
+        selectedDay = slot.dayOfWeek
+        startTime = slot.startTime
+        endTime = slot.endTime
+        room = slot.roomNumber ?: effectiveRoomForSubject(slot.subjectId).orEmpty()
+        roomOverridden = slot.roomNumberOverridden
+        setAsDefaultRoom = slot.setSubjectDefaultRoom
+        classCount = slot.classCount.toString()
+        classType = slot.classType
+        formTouched = false
+    }
+    var isSavingTimetable by remember { mutableStateOf(false) }
+    var timetableSaved by remember { mutableStateOf(false) }
+    var slotSaved by remember { mutableStateOf(false) }
+
+    LaunchedEffect(slotSaved) {
+        if (slotSaved) {
+            delay(500)
+            showSlotsSheet = true
+            slotSaved = false
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.navEvents.collect { event ->
             tutorialController?.reportSignal(TutorialSignal.TIMETABLE_SAVED)
+            timetableSaved = true
+            delay(600)
             when (event) {
                 is EditorNavEvent.Back -> onBack()
                 is EditorNavEvent.ToBackdatedFill -> onBackdatedFill(event.versionId)
@@ -270,8 +305,8 @@ fun TimetableVersionEditorScreen(
                         label = { Text("Counts as N classes") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Button(
-                        onClick = hapticClick {
+                    MorphingSaveButton(
+                        onClick = {
                             selectedSubjectId?.let {
                                 val editing = editingLocalId
                                 val nextRoom = if (setAsDefaultRoom) room else findEffectiveRoom(selectedSubjectId, editing).orEmpty()
@@ -289,21 +324,34 @@ fun TimetableVersionEditorScreen(
                                 classCount = "1"
                                 classType = ClassType.LECTURE
                                 formTouched = false
-                                showSlotsSheet = true
+                                slotSaved = true
                             }
                         },
+                        label = if (editingLocalId != null) "Update Slot" else "Save Slot",
+                        pendingLabel = if (editingLocalId != null) "Updating Slot..." else "Saving Slot...",
+                        successLabel = if (editingLocalId != null) "Slot Updated" else "Slot Saved",
+                        state = if (slotSaved) MorphingButtonState.SUCCESS else MorphingButtonState.IDLE,
                         enabled = selectedSubjectId != null,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text(if (editingLocalId != null) "Update Slot" else "Save Slot") }
+                    )
                 }
             }
 
-            Button(
-                onClick = hapticClick(viewModel::save),
+            MorphingSaveButton(
+                onClick = {
+                    isSavingTimetable = true
+                    viewModel.save()
+                },
+                label = "Save timetable",
+                pendingLabel = "Saving timetable...",
+                successLabel = "Timetable saved",
+                state = when {
+                    timetableSaved -> MorphingButtonState.SUCCESS
+                    isSavingTimetable -> MorphingButtonState.PENDING
+                    else -> MorphingButtonState.IDLE
+                },
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp).tutorialTarget("save_timetable_button")
-            ) {
-                Text("Save timetable")
-            }
+            )
         }
     }
 

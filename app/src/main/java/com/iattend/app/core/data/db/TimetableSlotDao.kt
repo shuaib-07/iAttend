@@ -21,6 +21,9 @@ interface TimetableSlotDao {
     @Delete
     suspend fun delete(slot: TimetableSlot)
 
+    @Query("SELECT * FROM timetable_slots WHERE id = :id LIMIT 1")
+    suspend fun getByIdOnce(id: Long): TimetableSlot?
+
     @Query("SELECT * FROM timetable_slots")
     suspend fun getAllOnce(): List<TimetableSlot>
 

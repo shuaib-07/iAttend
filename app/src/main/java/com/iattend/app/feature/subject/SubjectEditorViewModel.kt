@@ -7,6 +7,7 @@ import androidx.navigation.toRoute
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.TotalMode
+import com.iattend.app.core.data.db.WeightageSystem
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import com.iattend.app.core.navigation.SubjectEditorRoute
 import com.iattend.app.core.ui.nextSubjectColor
@@ -34,6 +35,8 @@ data class SubjectEditorState(
     val trackingEndDateOverride: LocalDate? = null, // null = use global Settings end date (COMPUTED mode)
     val reminderOffsetsOverride: String? = null, // null = use Settings.classReminderDefaultOffsets
     val defaultRoomNumber: String? = null,
+    val gradingSystem: WeightageSystem? = null,
+    val totalWeightedMarks: String = "",
     val saved: Boolean = false
 )
 
@@ -72,7 +75,9 @@ class SubjectEditorViewModel @Inject constructor(
                         knownTotalClasses = s.knownTotalClasses?.toString() ?: "",
                         trackingEndDateOverride = s.trackingEndDateOverride,
                         reminderOffsetsOverride = s.reminderOffsetsOverride,
-                        defaultRoomNumber = s.defaultRoomNumber
+                        defaultRoomNumber = s.defaultRoomNumber,
+                        gradingSystem = s.gradingSystem,
+                        totalWeightedMarks = s.totalWeightedMarks?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: ""
                     )
                 }
             }
@@ -89,6 +94,8 @@ class SubjectEditorViewModel @Inject constructor(
     fun onKnownTotalChange(v: String) { _state.value = _state.value.copy(knownTotalClasses = v) }
     fun onTrackingEndDateOverrideChange(v: LocalDate?) { _state.value = _state.value.copy(trackingEndDateOverride = v) }
     fun onReminderOffsetsOverrideChange(v: String?) { _state.value = _state.value.copy(reminderOffsetsOverride = v) }
+    fun onGradingSystemChange(v: WeightageSystem?) { _state.value = _state.value.copy(gradingSystem = v) }
+    fun onTotalWeightedMarksChange(v: String) { _state.value = _state.value.copy(totalWeightedMarks = v.filter { it.isDigit() || it == '.' }) }
 
     fun save() {
         viewModelScope.launch {
@@ -104,7 +111,9 @@ class SubjectEditorViewModel @Inject constructor(
                 knownTotalClasses = if (s.totalMode == TotalMode.KNOWN) s.knownTotalClasses.toIntOrNull() else null,
                 trackingEndDateOverride = if (s.totalMode == TotalMode.COMPUTED) s.trackingEndDateOverride else null,
                 reminderOffsetsOverride = s.reminderOffsetsOverride,
-                defaultRoomNumber = s.defaultRoomNumber
+                defaultRoomNumber = s.defaultRoomNumber,
+                gradingSystem = s.gradingSystem,
+                totalWeightedMarks = if (s.gradingSystem == WeightageSystem.WEIGHTED_MARKS) s.totalWeightedMarks.toDoubleOrNull() else null
             )
             val savedId = if (isNew) subjectDao.insert(subject) else { subjectDao.update(subject); subject.id }
             occurrenceRepository.regenerateUnmarkedWindow()

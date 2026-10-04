@@ -18,10 +18,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import com.iattend.app.core.data.db.AssessmentAttemptStatus
+import com.iattend.app.core.data.db.AssessmentType
+import com.iattend.app.core.data.db.OccurrenceStatus
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -80,7 +84,13 @@ fun HomeScreen(
                 requiredPercentage = state.requiredPercentageDefault,
                 modifier = Modifier.padding(bottom = 20.dp)
             )
-            Text("Attendance", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+
+            TodayScheduleSection(
+                items = state.todaySchedule,
+                onItemClick = onOpenCalendar
+            )
+
+            Text("Attendance", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             Text(
                 "Target: ${state.requiredPercentageDefault.toInt()}%",
                 style = MaterialTheme.typography.bodyMedium,
@@ -307,3 +317,261 @@ private fun SubjectSummaryCard(summary: SubjectSummary, onClick: () -> Unit, mod
         }
     }
 }
+
+@Composable
+private fun TodayScheduleSection(
+    items: List<TodayScheduleItem>,
+    onItemClick: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (items.isEmpty()) return
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Today's Schedule",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Text(
+                "${items.size} item${if (items.size > 1) "s" else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        items.forEach { item ->
+            when (item) {
+                is TodayScheduleItem.ClassItem -> {
+                    ClassScheduleCard(
+                        item = item,
+                        onClick = { onItemClick(item.occurrence.date) }
+                    )
+                }
+                is TodayScheduleItem.AssessmentItem -> {
+                    AssessmentScheduleCard(
+                        item = item,
+                        onClick = { onItemClick(item.assessment.date) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClassScheduleCard(
+    item: TodayScheduleItem.ClassItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val subject = item.subject
+    val occurrence = item.occurrence
+    val timeStr = occurrence.startTime?.let { formatTime(it, LocalTimeFormat.current) } ?: ""
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(
+                            color = subject?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary,
+                            shape = CircleShape
+                        )
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        subject?.name ?: "Class",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    Text(
+                        buildString {
+                            if (timeStr.isNotBlank()) append(timeStr)
+                            occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let {
+                                if (isNotEmpty()) append(" · ")
+                                append(it)
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (occurrence.status != OccurrenceStatus.UNMARKED) {
+                    Text(
+                        occurrence.status.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = when (occurrence.status) {
+                            OccurrenceStatus.PRESENT -> MaterialTheme.colorScheme.primary
+                            OccurrenceStatus.ABSENT -> MaterialTheme.colorScheme.error
+                            OccurrenceStatus.CANCELLED -> MaterialTheme.colorScheme.outline
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
+
+            // Linked tests nested inside class card
+            item.linkedTests.forEach { test ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    test.type.name,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    test.title ?: test.type.name,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
+                                )
+                            }
+                            test.totalMarks?.let { marks ->
+                                Text(
+                                    "Total marks: ${if (marks % 1.0 == 0.0) marks.toInt().toString() else marks.toString()}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (test.attemptStatus != AssessmentAttemptStatus.PENDING) {
+                            Text(
+                                test.attemptStatus.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (test.attemptStatus == AssessmentAttemptStatus.ATTEMPTED)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssessmentScheduleCard(
+    item: TodayScheduleItem.AssessmentItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val assessment = item.assessment
+    val subject = item.subject
+    val timeStr = formatTime(assessment.startTime, LocalTimeFormat.current)
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(
+                        color = subject?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary,
+                        shape = CircleShape
+                    )
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        assessment.type.name,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        assessment.title ?: assessment.type.name,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
+                Text(
+                    buildString {
+                        subject?.name?.let { append(it) }
+                        if (timeStr.isNotBlank()) {
+                            if (isNotEmpty()) append(" · ")
+                            append(timeStr)
+                        }
+                        assessment.totalMarks?.let { marks ->
+                            if (isNotEmpty()) append(" · ")
+                            val formattedMarks = if (marks % 1.0 == 0.0) marks.toInt().toString() else marks.toString()
+                            append("$formattedMarks marks")
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (assessment.needsRescheduling) {
+                Text(
+                    "Needs Rescheduling",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else if (assessment.attemptStatus != AssessmentAttemptStatus.PENDING) {
+                Text(
+                    assessment.attemptStatus.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (assessment.attemptStatus == AssessmentAttemptStatus.ATTEMPTED)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+

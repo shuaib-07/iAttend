@@ -98,6 +98,46 @@ fun showClassReminderNotification(context: Context, occurrence: ClassOccurrence,
     NotificationManagerCompat.from(context).notify(occurrence.id.toInt(), notification)
 }
 
+/** Builds and posts a combined reminder when an assessment is linked to a class occurrence. */
+fun showCombinedClassAndAssessmentReminderNotification(
+    context: Context,
+    occurrence: ClassOccurrence,
+    assessment: Assessment,
+    subjectName: String,
+    timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR
+) {
+    val openIntent = PendingIntent.getActivity(
+        context,
+        occurrence.id.toInt(),
+        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val whenText = occurrence.startTime?.let { formatTime(it, timeFormat) }?.let { time ->
+        if (occurrence.date == LocalDate.now()) time else "${formatDateShort(occurrence.date)}, $time"
+    } ?: ""
+
+    val location = occurrence.roomNumber?.takeIf { it.isNotBlank() }?.let { " • Room $it" }.orEmpty()
+    val testLabel = assessment.title?.takeIf { it.isNotBlank() }
+        ?: if (assessment.type == AssessmentType.EXAM) "Exam" else "Test"
+    val title = "$subjectName Class & $testLabel"
+    val typeName = if (assessment.type == AssessmentType.EXAM) "Exam" else "Test"
+    val text = "Upcoming $typeName at $whenText$location"
+
+    val notification = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setContentTitle(title)
+        .setContentText(text)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setAutoCancel(true)
+        .setContentIntent(openIntent)
+        .addAction(0, "Present", actionPendingIntent(context, occurrence.id, "PRESENT"))
+        .addAction(0, "Absent", actionPendingIntent(context, occurrence.id, "ABSENT"))
+        .build()
+
+    NotificationManagerCompat.from(context).notify(occurrence.id.toInt(), notification)
+}
+
 /** Fired at class end time (independent of the pre-class reminder above) - prompts marking
  * attendance right after the class, with a "can skip N more" hint pulled from the subject's
  * existing attendance stats. Skipped by the caller if the occurrence was already marked. */

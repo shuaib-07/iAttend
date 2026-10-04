@@ -60,4 +60,17 @@ class Converters {
 
     @TypeConverter
     fun toAssessmentType(value: String?): AssessmentType? = value?.let(AssessmentType::valueOf)
+
+    @TypeConverter
+    fun fromWeightageSystem(value: WeightageSystem?): String? = value?.name
+
+    @TypeConverter
+    fun toWeightageSystem(value: String?): WeightageSystem? = value?.let(WeightageSystem::valueOf)
+
+    @TypeConverter
+    fun fromAssessmentAttemptStatus(value: AssessmentAttemptStatus?): String? = value?.name
+
+    @TypeConverter
+    fun toAssessmentAttemptStatus(value: String?): AssessmentAttemptStatus? =
+        value?.let(AssessmentAttemptStatus::valueOf)
 }

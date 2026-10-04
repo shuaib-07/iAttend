@@ -1,12 +1,14 @@
 package com.iattend.app.feature.timetable
 
+import android.content.Context
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.SavedStateHandle
-import androidx.room.withTransaction
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.iattend.app.core.data.db.ClassOccurrence
+import androidx.room.withTransaction
 import com.iattend.app.core.data.db.AppDatabase
+import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.ClassType
 import com.iattend.app.core.data.db.OccurrenceSource
@@ -15,17 +17,14 @@ import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.navigation.ExtraClassesRoute
 import com.iattend.app.core.notifications.ClassReminderScheduler
-import android.content.Context
-import androidx.glance.appwidget.updateAll
 import com.iattend.app.widget.UpcomingClassesWidget
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,7 +32,11 @@ import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
 
-data class UpcomingExtra(val occurrence: ClassOccurrence, val subjectName: String)
+data class ExtraClassItem(
+    val occurrence: ClassOccurrence,
+    val subjectName: String,
+    val subjectColorArgb: Int?
+)
 
 data class ExtraClassForm(
     val date: LocalDate = LocalDate.now(),
@@ -58,8 +61,13 @@ class ExtraClassesViewModel @Inject constructor(
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<ExtraClassesRoute>()
 
+    private val _isFormOpen = MutableStateFlow(
+        route.prefillDate != null || route.editOccurrenceId != null
+    )
+    val isFormOpen: StateFlow<Boolean> = _isFormOpen.asStateFlow()
+
     private val _form = MutableStateFlow(
-        ExtraClassForm(date = route.prefillDate?.let(LocalDate::parse) ?: LocalDate.now())
+        ExtraClassForm(date = route.prefillDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now())
     )
     val form: StateFlow<ExtraClassForm> = _form.asStateFlow()
 
@@ -76,15 +84,34 @@ class ExtraClassesViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val upcomingExtras: StateFlow<List<UpcomingExtra>> = combine(
+    val upcomingExtras: StateFlow<List<ExtraClassItem>> = combine(
         classOccurrenceDao.getAll(),
         subjectDao.getAll()
     ) { occurrences, subjects ->
         val today = LocalDate.now()
+        val subjectsById = subjects.associateBy { it.id }
         occurrences
             .filter { it.source == OccurrenceSource.EXTRA && !it.date.isBefore(today) }
             .sortedWith(compareBy({ it.date }, { it.startTime }))
-            .map { occ -> UpcomingExtra(occ, subjects.find { it.id == occ.subjectId }?.name ?: "?") }
+            .map { occ ->
+                val sub = subjectsById[occ.subjectId]
+                ExtraClassItem(occ, sub?.name ?: "?", sub?.colorArgb)
+            }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val pastExtras: StateFlow<List<ExtraClassItem>> = combine(
+        classOccurrenceDao.getAll(),
+        subjectDao.getAll()
+    ) { occurrences, subjects ->
+        val today = LocalDate.now()
+        val subjectsById = subjects.associateBy { it.id }
+        occurrences
+            .filter { it.source == OccurrenceSource.EXTRA && it.date.isBefore(today) }
+            .sortedWith(compareByDescending<ClassOccurrence> { it.date }.thenByDescending { it.startTime })
+            .map { occ ->
+                val sub = subjectsById[occ.subjectId]
+                ExtraClassItem(occ, sub?.name ?: "?", sub?.colorArgb)
+            }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
@@ -102,6 +129,18 @@ class ExtraClassesViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun openScheduleForm(prefillDate: LocalDate? = null) {
+        if (prefillDate != null) {
+            _form.update { it.copy(date = prefillDate) }
+        }
+        _isFormOpen.value = true
+    }
+
+    fun closeScheduleForm() {
+        cancelEdit()
+        _isFormOpen.value = false
     }
 
     fun onDateChange(date: LocalDate) { _form.update { it.copy(date = date) } }
@@ -137,6 +176,7 @@ class ExtraClassesViewModel @Inject constructor(
         )
         _editingOriginalForm.value = editForm
         _form.value = editForm
+        _isFormOpen.value = true
     }
 
     fun cancelEdit() {
@@ -198,6 +238,7 @@ class ExtraClassesViewModel @Inject constructor(
             }
             _form.update { it.copy(room = effectiveDefaultAfterSave.orEmpty(), roomOverridden = false, setSubjectDefaultRoom = false, editingOccurrenceId = null) }
             _editingOriginalForm.value = null
+            _isFormOpen.value = false
             reminderScheduler.scheduleTodayReminders()
             UpcomingClassesWidget().updateAll(context)
         }
@@ -208,7 +249,10 @@ class ExtraClassesViewModel @Inject constructor(
             classOccurrenceDao.delete(occurrence)
             reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
             UpcomingClassesWidget().updateAll(context)
-            if (editingOriginal?.id == occurrence.id) cancelEdit()
+            if (editingOriginal?.id == occurrence.id) {
+                cancelEdit()
+                _isFormOpen.value = false
+            }
         }
     }
 

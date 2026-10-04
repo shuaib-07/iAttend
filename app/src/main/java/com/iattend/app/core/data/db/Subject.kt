@@ -10,6 +10,9 @@ import java.time.LocalDate
 enum class TotalMode { KNOWN, COMPUTED, OPEN_ENDED }
 
 @Serializable
+enum class WeightageSystem { PERCENTAGE, WEIGHTED_MARKS }
+
+@Serializable
 @Entity(tableName = "subjects")
 data class Subject(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -25,5 +28,7 @@ data class Subject(
     /** Comma-separated minutes-before-class list. Null = fall back to Settings.classReminderDefaultOffsets. */
     val reminderOffsetsOverride: String? = null,
     /** Null means this subject has no default room. */
-    val defaultRoomNumber: String? = null
+    val defaultRoomNumber: String? = null,
+    val gradingSystem: WeightageSystem? = null,
+    val totalWeightedMarks: Double? = null
 )

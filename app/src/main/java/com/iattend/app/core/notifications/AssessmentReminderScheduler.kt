@@ -31,6 +31,7 @@ class AssessmentReminderScheduler @Inject constructor(
     /** Cancels any previously scheduled reminders for this assessment, then reschedules from its current offsets. */
     fun reschedule(assessment: Assessment) {
         cancel(assessment.id)
+        if (assessment.needsRescheduling) return
         if (!canScheduleExactAlarms()) return
 
         val now = LocalDateTime.now()

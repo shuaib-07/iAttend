@@ -202,7 +202,8 @@ fun AppNavHost(startDestination: Any) {
                             SubjectDetailScreen(
                                 onBack = { navController.popBackStack() },
                                 onEdit = { id -> navController.navigate(SubjectEditorRoute(id)) },
-                                onAssessments = { id -> navController.navigate(AssessmentListRoute(id)) }
+                                onAssessments = { id -> navController.navigate(AssessmentListRoute(id)) },
+                                onEditAssessment = { subjectId, assessmentId -> navController.navigate(AssessmentEditorRoute(subjectId, assessmentId)) }
                             )
                         }
                         composable<AssessmentListRoute> {
@@ -226,6 +227,11 @@ fun AppNavHost(startDestination: Any) {
                             CalendarScreen(
                                 onAddExtra = { date -> navController.navigate(ExtraClassesRoute(prefillDate = date.toString())) },
                                 onEditExtra = { occurrenceId -> navController.navigate(ExtraClassesRoute(editOccurrenceId = occurrenceId)) },
+                                onEditScheduledClass = { versionId, dayOfWeek, slotId ->
+                                    navController.navigate(TimetableVersionEditorRoute(versionId, dayOfWeek.name, slotId))
+                                },
+                                onSubjectClick = { subjectId -> navController.navigate(SubjectDetailRoute(subjectId)) },
+                                onAssessmentClick = { subjectId, assessmentId -> navController.navigate(AssessmentEditorRoute(subjectId, assessmentId)) },
                                 initialDate = route.selectedDate
                             )
                         }

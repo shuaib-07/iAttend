@@ -102,6 +102,69 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE subjects ADD COLUMN gradingSystem TEXT")
+        db.execSQL("ALTER TABLE subjects ADD COLUMN totalWeightedMarks REAL")
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS deleted_class_exceptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                subjectId INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                startTime TEXT,
+                FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_deleted_class_exceptions_subjectId ON deleted_class_exceptions(subjectId)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_deleted_class_exceptions_date ON deleted_class_exceptions(date)")
+
+        db.execSQL(
+            """
+            CREATE TABLE assessments_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                subjectId INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                date TEXT NOT NULL,
+                startTime TEXT NOT NULL,
+                endTime TEXT NOT NULL,
+                totalMarks REAL,
+                portions TEXT,
+                reminderOffsets TEXT NOT NULL DEFAULT '',
+                title TEXT,
+                obtainedMarks REAL,
+                weight REAL,
+                attemptStatus TEXT NOT NULL DEFAULT 'PENDING',
+                isAttemptOverridden INTEGER NOT NULL DEFAULT 0,
+                linkedOccurrenceId INTEGER,
+                needsRescheduling INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE CASCADE,
+                FOREIGN KEY(linkedOccurrenceId) REFERENCES class_occurrences(id) ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO assessments_new (
+                id, subjectId, type, date, startTime, endTime, totalMarks, portions, reminderOffsets, title,
+                obtainedMarks, weight, attemptStatus, isAttemptOverridden, linkedOccurrenceId, needsRescheduling
+            )
+            SELECT
+                id, subjectId, type, date, startTime, endTime, CAST(totalMarks AS REAL), portions, reminderOffsets, title,
+                NULL, NULL, 'PENDING', 0, NULL, 0
+            FROM assessments
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE assessments")
+        db.execSQL("ALTER TABLE assessments_new RENAME TO assessments")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_subjectId ON assessments(subjectId)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_date ON assessments(date)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_linkedOccurrenceId ON assessments(linkedOccurrenceId)")
+    }
+}
+
 @Database(
     entities = [
         Subject::class,
@@ -110,9 +173,10 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         ClassOccurrence::class,
         Holiday::class,
         RecurringHolidayRule::class,
-        Assessment::class
+        Assessment::class,
+        DeletedClassException::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -124,4 +188,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun holidayDao(): HolidayDao
     abstract fun recurringHolidayRuleDao(): RecurringHolidayRuleDao
     abstract fun assessmentDao(): AssessmentDao
+    abstract fun deletedClassExceptionDao(): DeletedClassExceptionDao
 }

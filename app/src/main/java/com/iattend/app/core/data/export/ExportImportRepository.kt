@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.iattend.app.core.data.db.AppDatabase
 import com.iattend.app.core.data.db.Assessment
 import com.iattend.app.core.data.db.AssessmentDao
+import com.iattend.app.core.data.db.DeletedClassException
+import com.iattend.app.core.data.db.DeletedClassExceptionDao
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.Holiday
@@ -46,7 +48,8 @@ data class ExportPayload(
     val recurringHolidayRules: List<RecurringHolidayRule>,
     val settings: AppSettings,
     val profile: Profile,
-    val assessments: List<Assessment> = emptyList()
+    val assessments: List<Assessment> = emptyList(),
+    val deletedClassExceptions: List<DeletedClassException> = emptyList()
 )
 
 @Serializable
@@ -83,13 +86,14 @@ class ExportImportRepository @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val profileRepository: ProfileRepository,
     private val occurrenceRepository: OccurrenceRepository,
-    private val assessmentDao: AssessmentDao
+    private val assessmentDao: AssessmentDao,
+    private val deletedClassExceptionDao: DeletedClassExceptionDao
 ) {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
 
     suspend fun export(): String = json.encodeToString(
         ExportPayload(
-            exportVersion = 2,
+            exportVersion = 3,
             subjects = subjectDao.getAllOnce(),
             timetableVersions = timetableVersionDao.getAllOnce(),
             timetableSlots = timetableSlotDao.getAllOnce(),
@@ -98,7 +102,8 @@ class ExportImportRepository @Inject constructor(
             recurringHolidayRules = recurringHolidayRuleDao.getAllOnce(),
             settings = settingsRepository.settings.first(),
             profile = profileRepository.profile.first(),
-            assessments = assessmentDao.getAllOnce()
+            assessments = assessmentDao.getAllOnce(),
+            deletedClassExceptions = deletedClassExceptionDao.getAllOnce()
         )
     )
 
@@ -121,6 +126,7 @@ class ExportImportRepository @Inject constructor(
             holidayDao.insertAll(payload.holidays)
             recurringHolidayRuleDao.upsertAll(payload.recurringHolidayRules)
             if (payload.assessments.isNotEmpty()) assessmentDao.insertAll(payload.assessments)
+            if (payload.deletedClassExceptions.isNotEmpty()) deletedClassExceptionDao.insertAll(payload.deletedClassExceptions)
         }
         settingsRepository.replaceAll(payload.settings)
         profileRepository.replaceAll(payload.profile)
@@ -219,7 +225,8 @@ class ExportImportRepository @Inject constructor(
                     assessment.copy(
                         id = 0,
                         subjectId = subjectMap[assessment.subjectId]
-                            ?: error("Missing subject for assessment ${assessment.subjectId}")
+                            ?: error("Missing subject for assessment ${assessment.subjectId}"),
+                        linkedOccurrenceId = null
                     )
                 }
                 assessmentDao.insertAll(remappedAssessments)

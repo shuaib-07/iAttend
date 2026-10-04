@@ -1,6 +1,12 @@
 package com.iattend.app.core.domain.occurrence
 
+import com.iattend.app.core.data.db.Assessment
+import com.iattend.app.core.data.db.AssessmentAttemptStatus
+import com.iattend.app.core.data.db.AssessmentDao
+import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassOccurrenceDao
+import com.iattend.app.core.data.db.DeletedClassException
+import com.iattend.app.core.data.db.DeletedClassExceptionDao
 import com.iattend.app.core.data.db.HolidayDao
 import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
@@ -9,6 +15,7 @@ import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.TimetableSlotDao
 import com.iattend.app.core.data.db.TimetableVersionDao
 import com.iattend.app.core.datastore.SettingsRepository
+import com.iattend.app.core.notifications.AssessmentReminderScheduler
 import com.iattend.app.core.notifications.ClassReminderScheduler
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
@@ -38,7 +45,10 @@ class OccurrenceRepository @Inject constructor(
     private val recurringHolidayRuleDao: RecurringHolidayRuleDao,
     private val settingsRepository: SettingsRepository,
     private val subjectDao: SubjectDao,
-    private val reminderScheduler: ClassReminderScheduler
+    private val reminderScheduler: ClassReminderScheduler,
+    private val deletedClassExceptionDao: DeletedClassExceptionDao,
+    private val assessmentDao: AssessmentDao,
+    private val assessmentReminderScheduler: AssessmentReminderScheduler
 ) {
     /**
      * Regenerates the unmarked window and returns the freshly-inserted occurrences (still
@@ -61,13 +71,9 @@ class OccurrenceRepository @Inject constructor(
         val slotsByVersion = versions.associate { it.id to timetableSlotDao.getForVersionOnce(it.id) }
         val holidays = holidayDao.getAllOnce()
         val rules = recurringHolidayRuleDao.getAllOnce()
+        val deletedExceptions = deletedClassExceptionDao.getAllOnce()
+        val deletedKeys = deletedExceptions.map { Triple(it.date, it.subjectId, it.startTime) }.toSet()
 
-        // Dates that already have a MARKED occurrence must be left alone - we only deleted the
-        // unmarked rows, so skip regenerating a duplicate for those. Matched by (date, subject,
-        // startTime) rather than timetableSlotId: every save deletes and reinserts all slots with
-        // fresh ids (see TimetableVersionEditorViewModel.save), which SET_NULLs the id on already-
-        // marked occurrences via the FK - keying off it would silently stop recognizing them as
-        // already-marked and duplicate a fresh UNMARKED row on every single save.
         val existing = classOccurrenceDao.getInRangeOnce(start, horizon)
 
         // If a date is a holiday, any SCHEDULED occurrence on that date (even if previously marked
@@ -76,17 +82,52 @@ class OccurrenceRepository @Inject constructor(
             it.source == OccurrenceSource.SCHEDULED && OccurrenceGenerator.isHoliday(it.date, holidays, rules)
         }
         for (occ in scheduledOnHolidays) {
+            val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
+            if (linkedTests.isNotEmpty()) {
+                assessmentDao.updateAll(linkedTests.map {
+                    it.copy(needsRescheduling = true, linkedOccurrenceId = null)
+                })
+                for (test in linkedTests) {
+                    assessmentReminderScheduler.cancel(test.id)
+                }
+            }
             classOccurrenceDao.delete(occ)
         }
         val deletedHolidayIds = scheduledOnHolidays.map { it.id }.toSet()
 
-        val markedKeys = existing
-            .filterNot { it.id in deletedHolidayIds }
-            .filter { it.status != OccurrenceStatus.UNMARKED && it.source == OccurrenceSource.SCHEDULED }
+        // Also purge any unmarked occurrences that match deletedClassExceptions
+        val scheduledOnDeletedExceptions = existing.filter {
+            it.id !in deletedHolidayIds &&
+                it.source == OccurrenceSource.SCHEDULED &&
+                Triple(it.date, it.subjectId, it.startTime) in deletedKeys
+        }
+        for (occ in scheduledOnDeletedExceptions) {
+            val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
+            if (linkedTests.isNotEmpty()) {
+                assessmentDao.updateAll(linkedTests.map {
+                    it.copy(needsRescheduling = true, linkedOccurrenceId = null)
+                })
+                for (test in linkedTests) {
+                    assessmentReminderScheduler.cancel(test.id)
+                }
+            }
+            classOccurrenceDao.delete(occ)
+        }
+        val purgedDeletedIds = scheduledOnDeletedExceptions.map { it.id }.toSet()
+
+        val linkedOccurrenceIds = assessmentDao.getLinkedOccurrenceIds().toSet()
+
+        val markedOrProtectedKeys = existing
+            .filterNot { it.id in deletedHolidayIds || it.id in purgedDeletedIds }
+            .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds) && it.source == OccurrenceSource.SCHEDULED }
             .map { Triple(it.date, it.subjectId, it.startTime) }
             .toSet()
 
-        classOccurrenceDao.deleteUnmarkedScheduledInRange(start, horizon)
+        if (linkedOccurrenceIds.isEmpty()) {
+            classOccurrenceDao.deleteUnmarkedScheduledInRange(start, horizon)
+        } else {
+            classOccurrenceDao.deleteUnmarkedScheduledInRangeExcluding(start, horizon, linkedOccurrenceIds.toList())
+        }
 
         val generated = OccurrenceGenerator.generateOccurrences(
             dateRange = start..horizon,
@@ -95,7 +136,10 @@ class OccurrenceRepository @Inject constructor(
             holidays = holidays,
             recurringRules = rules,
             subjectsById = subjectDao.getAllOnce().associateBy { it.id }
-        ).filterNot { Triple(it.date, it.subjectId, it.startTime) in markedKeys }
+        ).filterNot {
+            Triple(it.date, it.subjectId, it.startTime) in markedOrProtectedKeys ||
+                Triple(it.date, it.subjectId, it.startTime) in deletedKeys
+        }
 
         classOccurrenceDao.insertAll(generated)
         reminderScheduler.scheduleTodayReminders()
@@ -152,5 +196,107 @@ class OccurrenceRepository @Inject constructor(
     ) {
         val occurrences = backdatedUnmarkedBySubject(today)[subjectId] ?: return
         classOccurrenceDao.updateAll(OccurrenceGenerator.applyBackdatedFill(occurrences, strategy))
+    }
+
+    suspend fun getLinkedTests(occurrenceId: Long): List<Assessment> =
+        assessmentDao.getForOccurrenceOnce(occurrenceId)
+
+    suspend fun findScoredLinkedTestConflicts(occurrenceId: Long, targetStatus: OccurrenceStatus): List<Assessment> {
+        if (targetStatus != OccurrenceStatus.ABSENT && targetStatus != OccurrenceStatus.UNMARKED) return emptyList()
+        return assessmentDao.getForOccurrenceOnce(occurrenceId).filter {
+            !it.isAttemptOverridden && it.obtainedMarks != null
+        }
+    }
+
+    suspend fun updateOccurrenceAttendance(
+        occurrence: ClassOccurrence,
+        newStatus: OccurrenceStatus,
+        clearScoresForTests: Boolean = false
+    ) {
+        val cancelReason = if (newStatus == OccurrenceStatus.CANCELLED) occurrence.cancelReason else null
+        classOccurrenceDao.update(occurrence.copy(status = newStatus, cancelReason = cancelReason))
+        if (newStatus != OccurrenceStatus.UNMARKED) {
+            reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+        }
+
+        val linkedTests = assessmentDao.getForOccurrenceOnce(occurrence.id)
+        if (linkedTests.isNotEmpty()) {
+            val updatedTests = linkedTests.map { test ->
+                if (test.isAttemptOverridden) {
+                    test
+                } else {
+                    when (newStatus) {
+                        OccurrenceStatus.PRESENT -> {
+                            test.copy(
+                                attemptStatus = AssessmentAttemptStatus.ATTEMPTED,
+                                needsRescheduling = false
+                            )
+                        }
+                        OccurrenceStatus.ABSENT -> {
+                            if (test.obtainedMarks != null && !clearScoresForTests) {
+                                test.copy(isAttemptOverridden = true)
+                            } else {
+                                test.copy(
+                                    attemptStatus = AssessmentAttemptStatus.MISSED,
+                                    obtainedMarks = if (clearScoresForTests) null else test.obtainedMarks,
+                                    needsRescheduling = false
+                                )
+                            }
+                        }
+                        OccurrenceStatus.UNMARKED -> {
+                            if (test.obtainedMarks != null && !clearScoresForTests) {
+                                test.copy(isAttemptOverridden = true)
+                            } else {
+                                test.copy(
+                                    attemptStatus = AssessmentAttemptStatus.PENDING,
+                                    obtainedMarks = if (clearScoresForTests) null else test.obtainedMarks,
+                                    needsRescheduling = false
+                                )
+                            }
+                        }
+                        OccurrenceStatus.CANCELLED -> {
+                            test.copy(needsRescheduling = true)
+                        }
+                    }
+                }
+            }
+            assessmentDao.updateAll(updatedTests)
+            for (t in updatedTests) {
+                if (t.needsRescheduling) {
+                    assessmentReminderScheduler.cancel(t.id)
+                }
+            }
+        }
+    }
+
+    suspend fun deleteSingleOccurrence(occurrence: ClassOccurrence, deleteLinkedTests: Boolean) {
+        if (occurrence.source == OccurrenceSource.SCHEDULED) {
+            deletedClassExceptionDao.insert(
+                DeletedClassException(
+                    subjectId = occurrence.subjectId,
+                    date = occurrence.date,
+                    startTime = occurrence.startTime
+                )
+            )
+        }
+        val linkedTests = assessmentDao.getForOccurrenceOnce(occurrence.id)
+        if (deleteLinkedTests) {
+            for (test in linkedTests) {
+                assessmentDao.delete(test)
+                assessmentReminderScheduler.cancel(test.id)
+            }
+        } else {
+            for (test in linkedTests) {
+                assessmentDao.update(
+                    test.copy(
+                        linkedOccurrenceId = null,
+                        isAttemptOverridden = true
+                    )
+                )
+            }
+        }
+        classOccurrenceDao.delete(occurrence)
+        reminderScheduler.cancelRemindersForOccurrence(occurrence.id)
+        reminderScheduler.scheduleTodayReminders()
     }
 }

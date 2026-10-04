@@ -53,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.iattend.app.core.ui.MorphingButtonState
+import com.iattend.app.core.ui.MorphingSaveButton
 import com.iattend.app.core.ui.hapticClick
 import kotlinx.coroutines.flow.collectLatest
 
@@ -93,30 +95,18 @@ fun BackdatedFillScreen(
                         .padding(16.dp)
                         .navigationBarsPadding()
                 ) {
-                    Button(
-                        onClick = hapticClick(viewModel::confirm),
+                    MorphingSaveButton(
+                        onClick = viewModel::confirm,
+                        label = if (state.subjects.isEmpty()) "Continue to Home" else "Save & Continue",
+                        pendingLabel = "Saving...",
+                        successLabel = "Saved",
+                        state = if (state.isSaving) MorphingButtonState.PENDING else MorphingButtonState.IDLE,
                         enabled = !state.isSaving,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
-                    ) {
-                        if (state.isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.5.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (state.subjects.isEmpty()) "Continue to Home" else "Save & Continue",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    )
                 }
             }
         }

@@ -43,17 +43,24 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.TotalMode
+import com.iattend.app.core.data.db.WeightageSystem
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import com.iattend.app.core.notifications.ReminderOffset
 import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal
 import com.iattend.app.core.tutorial.tutorialTarget
 import com.iattend.app.core.ui.DatePickerField
+import com.iattend.app.core.ui.MorphingButtonState
+import com.iattend.app.core.ui.MorphingSaveButton
 import com.iattend.app.core.ui.ReminderOffsetPicker
 import com.iattend.app.core.ui.SquircleIconButton
 import com.iattend.app.core.ui.SpringAlertDialog
 import com.iattend.app.core.ui.SubjectColorPalette
 import com.iattend.app.core.ui.hapticClick
 import com.iattend.app.core.ui.rememberUnsavedChangesGuard
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +73,7 @@ fun SubjectEditorScreen(
     val guardedBack = rememberUnsavedChangesGuard(isDirty = isDirty, onConfirmedBack = onBack)
     val tutorialController = LocalTutorialController.current
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.saved) {
         if (state.saved) {
@@ -73,6 +81,7 @@ fun SubjectEditorScreen(
                 it.setTutorialSubjectId(state.subjectId)
                 it.reportSignal(TutorialSignal.SUBJECT_SAVED)
             }
+            delay(600)
             onBack()
         }
     }
@@ -179,6 +188,35 @@ fun SubjectEditorScreen(
                 }
             }
 
+            Text("Assessment weightage system", style = MaterialTheme.typography.titleSmall)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val systems = listOf(null to "None", WeightageSystem.PERCENTAGE to "Percentage", WeightageSystem.WEIGHTED_MARKS to "Marks")
+                systems.forEachIndexed { index, (sys, label) ->
+                    SegmentedButton(
+                        selected = state.gradingSystem == sys,
+                        onClick = { viewModel.onGradingSystemChange(sys) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = systems.size)
+                    ) {
+                        Text(label)
+                    }
+                }
+            }
+            if (state.gradingSystem == WeightageSystem.WEIGHTED_MARKS) {
+                OutlinedTextField(
+                    value = state.totalWeightedMarks,
+                    onValueChange = viewModel::onTotalWeightedMarksChange,
+                    label = { Text("Total possible weighted marks (e.g. 100)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (state.gradingSystem != null) {
+                Text(
+                    "Assessments in this subject will track weighted contributions. Changing system requires re-entering weights.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Text("Class reminders")
             val reminderOverride = state.reminderOffsetsOverride
             if (reminderOverride == null) {
@@ -195,12 +233,18 @@ fun SubjectEditorScreen(
                 }
             }
 
-            Button(
-                onClick = hapticClick(viewModel::save),
+            MorphingSaveButton(
+                onClick = {
+                    isSaving = true
+                    viewModel.save()
+                },
+                state = when {
+                    state.saved -> MorphingButtonState.SUCCESS
+                    isSaving -> MorphingButtonState.PENDING
+                    else -> MorphingButtonState.IDLE
+                },
                 modifier = Modifier.fillMaxWidth().tutorialTarget("subject_save_button")
-            ) {
-                Text("Save")
-            }
+            )
 
             if (!viewModel.isNew) {
                 OutlinedButton(

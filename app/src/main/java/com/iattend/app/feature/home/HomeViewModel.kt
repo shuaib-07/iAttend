@@ -2,6 +2,8 @@ package com.iattend.app.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.iattend.app.core.data.db.Assessment
+import com.iattend.app.core.data.db.AssessmentDao
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.Subject
@@ -21,6 +23,25 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
+
+sealed interface TodayScheduleItem {
+    val time: LocalTime?
+
+    data class ClassItem(
+        val occurrence: ClassOccurrence,
+        val subject: Subject?,
+        val linkedTests: List<Assessment>
+    ) : TodayScheduleItem {
+        override val time: LocalTime? get() = occurrence.startTime
+    }
+
+    data class AssessmentItem(
+        val assessment: Assessment,
+        val subject: Subject?
+    ) : TodayScheduleItem {
+        override val time: LocalTime? get() = assessment.startTime
+    }
+}
 
 data class SubjectSummary(
     val subject: Subject,
@@ -54,7 +75,8 @@ data class HomeState(
     val semesterPresent: Int = 0,
     val semesterAbsent: Int = 0,
     val semesterUnmarked: Int = 0,
-    val pastUnmarkedClasses: List<ClassOccurrence> = emptyList()
+    val pastUnmarkedClasses: List<ClassOccurrence> = emptyList(),
+    val todaySchedule: List<TodayScheduleItem> = emptyList()
 ) {
     /** Projected total when any subject has one (Known/Computed), else falls back to marked-so-far. */
     val summaryDenominator: Int get() = if (projectedTotal > 0) projectedTotal else overallTotal
@@ -117,14 +139,16 @@ private val refreshMinute = flow {
 class HomeViewModel @Inject constructor(
     subjectDao: SubjectDao,
     classOccurrenceDao: ClassOccurrenceDao,
+    assessmentDao: AssessmentDao,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
     val state: StateFlow<HomeState> = combine(
         subjectDao.getAll(),
         classOccurrenceDao.getAll(),
+        assessmentDao.getAll(),
         settingsRepository.settings,
         refreshMinute
-    ) { subjects, occurrences, settings, _ ->
+    ) { subjects, occurrences, assessments, settings, _ ->
         val bySubject = occurrences.groupBy { it.subjectId }
         val summaries = subjects.map { subject ->
             val requiredPercentage = subject.requiredPercentageOverride ?: settings.requiredPercentageDefault
@@ -165,6 +189,28 @@ class HomeViewModel @Inject constructor(
                 WeeklyAttendancePoint(weekStart, if (tot == 0) 0f else att * 100f / tot)
             }
 
+        val todayOccurrences = occurrences.filter { it.date == today }
+        val todayAssessments = assessments.filter { it.date == today }
+        val linkedTestsByOccId = todayAssessments.filter { it.linkedOccurrenceId != null }.groupBy { it.linkedOccurrenceId }
+
+        val classItems = todayOccurrences.map { occ ->
+            TodayScheduleItem.ClassItem(
+                occurrence = occ,
+                subject = subjects.find { it.id == occ.subjectId },
+                linkedTests = linkedTestsByOccId[occ.id].orEmpty()
+            )
+        }
+
+        val independentAssessmentItems = todayAssessments.filter { it.linkedOccurrenceId == null }.map { a ->
+            TodayScheduleItem.AssessmentItem(
+                assessment = a,
+                subject = subjects.find { it.id == a.subjectId }
+            )
+        }
+
+        val todaySchedule = (classItems + independentAssessmentItems)
+            .sortedWith(compareBy({ it.time ?: LocalTime.MIN }, { if (it is TodayScheduleItem.ClassItem) 0 else 1 }))
+
         HomeState(
             overallAttended = summaries.sumOf { it.attended },
             overallTotal = summaries.sumOf { it.total },
@@ -189,7 +235,8 @@ class HomeViewModel @Inject constructor(
             semesterPresent = periodAttendance.present,
             semesterAbsent = periodAttendance.absent,
             semesterUnmarked = periodAttendance.unmarked,
-            pastUnmarkedClasses = periodAttendance.pastUnmarkedClasses
+            pastUnmarkedClasses = periodAttendance.pastUnmarkedClasses,
+            todaySchedule = todaySchedule
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeState())
 }

@@ -36,4 +36,22 @@ interface AssessmentDao {
 
     @Query("SELECT * FROM assessments ORDER BY date, startTime")
     suspend fun getAllOnce(): List<Assessment>
+
+    @Update
+    suspend fun updateAll(assessments: List<Assessment>)
+
+    @Query("SELECT * FROM assessments WHERE linkedOccurrenceId = :occurrenceId")
+    fun getForOccurrence(occurrenceId: Long): Flow<List<Assessment>>
+
+    @Query("SELECT * FROM assessments WHERE linkedOccurrenceId = :occurrenceId")
+    suspend fun getForOccurrenceOnce(occurrenceId: Long): List<Assessment>
+
+    @Query("SELECT DISTINCT linkedOccurrenceId FROM assessments WHERE linkedOccurrenceId IS NOT NULL")
+    suspend fun getLinkedOccurrenceIds(): List<Long>
+
+    @Query("SELECT * FROM assessments WHERE date = :date ORDER BY startTime")
+    suspend fun getForDateOnce(date: LocalDate): List<Assessment>
+
+    @Query("SELECT * FROM assessments WHERE date = :date ORDER BY startTime")
+    fun getForDate(date: LocalDate): Flow<List<Assessment>>
 }

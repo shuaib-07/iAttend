@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.ui.AvatarPicker
+import com.iattend.app.core.ui.MorphingSaveButton
 import com.iattend.app.core.ui.SquircleIconButton
 
 /** Bottom-sheet content (see ModalSheet) - no Scaffold of its own, hosted by SettingsScreen. */
@@ -58,12 +59,12 @@ fun ProfileSheetContent(
             label = { Text("Name") },
             modifier = Modifier.fillMaxWidth()
         )
-        Button(
-            onClick = {
+        MorphingSaveButton(
+            onAction = {
                 viewModel.setName(draftName)
-                onDismiss()
             },
+            onSuccess = onDismiss,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Save") }
+        )
     }
 }

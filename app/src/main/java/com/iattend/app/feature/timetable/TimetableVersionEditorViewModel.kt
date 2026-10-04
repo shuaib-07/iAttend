@@ -74,7 +74,9 @@ data class TimetableVersionEditorState(
     val holidayDays: Set<DayOfWeek> = emptySet(),
     val knownRooms: List<String> = emptyList(),
     val message: String? = null,
-    val pendingCorrections: List<PendingTimeCorrection> = emptyList()
+    val pendingCorrections: List<PendingTimeCorrection> = emptyList(),
+    val initialDayOfWeek: DayOfWeek? = null,
+    val initialEditSlotLocalId: Int? = null
 )
 
 @HiltViewModel
@@ -110,20 +112,28 @@ class TimetableVersionEditorViewModel @Inject constructor(
             var label = ""
             var effectiveFrom = LocalDate.now()
             var slots = emptyList<DraftSlot>()
+            var initialSlotLocalId: Int? = null
             if (!isNew) {
                 timetableVersionDao.getById(route.versionId)?.let {
                     label = it.label ?: ""
                     effectiveFrom = it.effectiveFrom
                 }
                 slots = timetableSlotDao.getForVersionOnce(route.versionId).map {
-                    DraftSlot(nextLocalId++, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
+                    val localId = nextLocalId++
+                    if (route.initialSlotId != null && it.id == route.initialSlotId) {
+                        initialSlotLocalId = localId
+                    }
+                    DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
                 }
             }
+            val initDay = route.initialDayOfWeek?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
             _state.value = _state.value.copy(
                 label = label,
                 effectiveFrom = effectiveFrom,
                 slots = slots,
-                subjects = subjects
+                subjects = subjects,
+                initialDayOfWeek = initDay,
+                initialEditSlotLocalId = initialSlotLocalId
             )
             initialSnapshot = Snapshot(label, effectiveFrom, slots)
         }

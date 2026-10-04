@@ -15,7 +15,11 @@ import kotlinx.serialization.Serializable
 @Serializable data class SubjectDetailRoute(val subjectId: Long)
 @Serializable data class SubjectEditorRoute(val subjectId: Long = 0L) // 0 = new
 @Serializable object TimetableVersionListRoute
-@Serializable data class TimetableVersionEditorRoute(val versionId: Long = 0L) // 0 = new
+@Serializable data class TimetableVersionEditorRoute(
+    val versionId: Long = 0L, // 0 = new
+    val initialDayOfWeek: String? = null,
+    val initialSlotId: Long? = null
+)
 @Serializable data class BackdatedFillRoute(val versionId: Long)
 @Serializable object HolidayListRoute
 @Serializable object RecurringHolidayRoute
