@@ -1,6 +1,7 @@
 package com.iattend.app.core.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CornerBasedShape
@@ -57,7 +58,8 @@ fun ListItem(
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     listColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
-    selectedListColor: Color = MaterialTheme.colorScheme.primaryContainer
+    selectedListColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    borderColor: Color? = null
 ) {
     Box(
         modifier = modifier
@@ -66,8 +68,9 @@ fun ListItem(
             .then(
                 if (shape != null) Modifier.clip(shape).background(if (selected) selectedListColor else listColor) else Modifier
             )
+            .then(if (shape != null && borderColor != null) Modifier.border(1.dp, borderColor, shape) else Modifier)
             .then(
-                if (onClick != null || onLongClick != null) Modifier.combinedClickable(onClick = onClick ?: {}, onLongClick = onLongClick) else Modifier
+                if (onClick != null || onLongClick != null) Modifier.combinedClickable(role = Role.Button, onClick = onClick ?: {}, onLongClick = onLongClick) else Modifier
             )
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
@@ -86,7 +89,7 @@ fun ListItem(
                     ProvideTextStyle(value = MaterialTheme.typography.bodyLarge) { headline() }
                 }
                 if (supporting != null) {
-                    CompositionLocalProvider(LocalContentColor provides if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant) {
+                    CompositionLocalProvider(LocalContentColor provides if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant) {
                         ProvideTextStyle(value = MaterialTheme.typography.bodySmall) { supporting() }
                     }
                 }

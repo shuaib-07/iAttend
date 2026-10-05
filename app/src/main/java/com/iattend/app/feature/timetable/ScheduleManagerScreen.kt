@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import com.iattend.app.core.navigation.LocalNavigationContentPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -44,7 +45,7 @@ fun ScheduleManagerScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
         Text("Schedule Manager", style = MaterialTheme.typography.headlineSmall)
         Text(

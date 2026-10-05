@@ -169,7 +169,7 @@ private fun FeatureCard(feature: Feature) {
 }
 
 @Composable
-fun NotificationPermissionStep(onGranted: () -> Unit) {
+fun NotificationPermissionStep(onGranted: () -> Unit, onSkip: () -> Unit) {
     val context = LocalContext.current
     var granted by remember {
         mutableStateOf(
@@ -183,7 +183,7 @@ fun NotificationPermissionStep(onGranted: () -> Unit) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(top = 32.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 32.dp, bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -205,7 +205,7 @@ fun NotificationPermissionStep(onGranted: () -> Unit) {
             Text("Notifications enabled", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         } else {
             Button(onClick = hapticClick { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Enable notifications") }
-            TextButton(onClick = {}) { Text("Skip for now", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            TextButton(onClick = onSkip) { Text("Skip for now", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

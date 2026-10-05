@@ -4,7 +4,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -12,30 +11,19 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BeachAccess
-import androidx.compose.material.icons.filled.EventRepeat
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,20 +38,20 @@ import com.iattend.app.core.ui.LottieMorphIcon
 import com.iattend.app.core.ui.hapticClick
 import com.iattend.app.feature.devsupport.DevSupportTrigger
 
-private data class NavTab(val lottieAsset: String, val label: String, val isSelected: (NavDestination?) -> Boolean, val route: Any)
+internal data class NavTab(val lottieAsset: String, val label: String, val isSelected: (NavDestination?) -> Boolean, val route: Any)
+
+internal val bottomNavTabs = listOf(
+    NavTab("lottie/home.json", "Home", { it?.hasRoute<HomeRoute>() == true }, HomeRoute),
+    NavTab("lottie/calendar.json", "Calendar", { it?.hasRoute<CalendarRoute>() == true }, CalendarRoute()),
+    NavTab("lottie/timetable.json", "Timetable", { it?.hasRoute<TimetableHubRoute>() == true }, TimetableHubRoute),
+    NavTab("lottie/insights.json", "Insights", { it?.hasRoute<InsightsRoute>() == true }, InsightsRoute),
+    NavTab("lottie/settings.json", "Settings", { it?.hasRoute<SettingsRoute>() == true }, SettingsRoute)
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppBottomBar(navController: NavHostController, destination: NavDestination?, modifier: Modifier = Modifier) {
-    val tabs = remember {
-        listOf(
-            NavTab("lottie/home.json", "Home", { it?.hasRoute<HomeRoute>() == true }, HomeRoute),
-            NavTab("lottie/calendar.json", "Calendar", { it?.hasRoute<CalendarRoute>() == true }, CalendarRoute()),
-            NavTab("lottie/timetable.json", "Timetable", { it?.hasRoute<TimetableHubRoute>() == true }, TimetableHubRoute),
-            NavTab("lottie/insights.json", "Insights", { it?.hasRoute<InsightsRoute>() == true }, InsightsRoute),
-            NavTab("lottie/settings.json", "Settings", { it?.hasRoute<SettingsRoute>() == true }, SettingsRoute)
-        )
-    }
+    val tabs = bottomNavTabs
 
     val configuration = LocalConfiguration.current
     val fontScale = LocalDensity.current.fontScale
@@ -130,54 +118,11 @@ internal fun QuickAddFab(
     }
 }
 
-/** "+" FAB with a management dropdown, shared by every root tab except Settings. */
+/** Shared bloom menu, preserving the pill toolbar's FAB appearance. */
 @Composable
 internal fun ManageMenuFab(navController: NavHostController) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box {
-        FloatingActionButton(
-            onClick = hapticClick { expanded = !expanded },
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            shape = MaterialTheme.shapes.large,
-            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-        ) {
-            LottieMorphIcon(
-                assetPath = "lottie/plus_to_x.json",
-                selected = expanded,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                contentDescription = if (expanded) "Close" else "Manage"
-            )
-        }
-
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Subjects") },
-                leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(SubjectListRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Timetable versions") },
-                leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(TimetableVersionListRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Holidays") },
-                leadingIcon = { Icon(Icons.Default.BeachAccess, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(HolidayListRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Recurring holidays") },
-                leadingIcon = { Icon(Icons.Default.EventRepeat, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(RecurringHolidayRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Extra classes") },
-                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(ExtraClassesRoute()) }
-            )
-        }
+    BloomManageMenu(navController) { onClick, expanded ->
+        QuickAddFab(onClick = onClick, selected = expanded, contentDescription = "Manage")
     }
 }
 

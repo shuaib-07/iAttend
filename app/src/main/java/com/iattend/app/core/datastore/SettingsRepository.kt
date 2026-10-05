@@ -1,5 +1,7 @@
 package com.iattend.app.core.datastore
 
+import com.iattend.app.core.domain.stats.isValidAttendancePercentage
+
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -21,7 +23,7 @@ private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 enum class ThemeMode { LIGHT, DARK, AMOLED, SYSTEM }
 
 @Serializable
-enum class NavBarStyle { PILL, CAPSULE }
+enum class NavBarStyle { PILL, CAPSULE, EXPANDABLE }
 
 @Serializable
 enum class TimeFormat { TWELVE_HOUR, TWENTY_FOUR_HOUR }
@@ -132,6 +134,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
     }
 
     suspend fun setRequiredPercentageDefault(percentage: Float) {
+        require(isValidAttendancePercentage(percentage)) { "Required attendance must be between 0% and 100%." }
         dataStore.edit { it[Keys.REQUIRED_PERCENTAGE] = percentage }
     }
 

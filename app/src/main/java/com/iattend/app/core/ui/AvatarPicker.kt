@@ -25,6 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 /** Fixed seeds so the same 10 avatars show every time the picker opens (not random) - reused across
  * every style below, so switching styles re-imagines the same "people" rather than a new random set. */
@@ -99,7 +104,9 @@ fun AvatarPicker(
                     size = 48.dp,
                     modifier = Modifier
                         .clip(CircleShape)
-                        .clickable { onAvatarUrlSelected(url) }
+                        .border(if (pictureUri == url) 2.dp else 0.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                        .selectable(selected = pictureUri == url, role = Role.RadioButton, onClick = { onAvatarUrlSelected(url) })
+                        .semantics { contentDescription = "${selectedStyle.label} avatar: $seed" }
                 )
             }
         }

@@ -27,6 +27,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class AssessmentListRoute(val subjectId: Long)
 @Serializable data class AssessmentEditorRoute(val subjectId: Long, val assessmentId: Long = 0L) // 0 = new
 @Serializable object AllAssessmentsRoute
+@Serializable object AddAssessmentRoute
 @Serializable object AboutRoute
 @Serializable object LicensesRoute
 

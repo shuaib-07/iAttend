@@ -33,7 +33,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -100,7 +102,7 @@ fun OnboardingScreen(
     }
 
     Scaffold { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
             com.iattend.app.core.ui.OnboardingAmbientBackground(modifier = Modifier.fillMaxSize())
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Text("Step ${state.step + 1} of $ONBOARDING_STEP_COUNT", style = MaterialTheme.typography.labelLarge)
@@ -126,7 +128,7 @@ fun OnboardingScreen(
             ) { step ->
                 when (step) {
                     0 -> FeaturesStep()
-                    1 -> NotificationPermissionStep(onGranted = viewModel::onNotificationsEnabled)
+                    1 -> NotificationPermissionStep(onGranted = viewModel::onNotificationsEnabled, onSkip = viewModel::nextStep)
                     2 -> ThemeStep()
                     3 -> NameStep(state.name, viewModel::onNameChange, state.avatarUri, viewModel::onAvatarPicked, viewModel::onAvatarUrlSelected)
                 }
@@ -155,10 +157,10 @@ private fun StartChoiceScreen(onStartFresh: () -> Unit, onImportBackup: (android
         uri?.let(onImportBackup)
     }
     Scaffold { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
         com.iattend.app.core.ui.OnboardingAmbientBackground(modifier = Modifier.fillMaxSize())
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp).padding(top = 32.dp),
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).padding(top = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -175,7 +177,7 @@ private fun StartChoiceScreen(onStartFresh: () -> Unit, onImportBackup: (android
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            androidx.compose.foundation.layout.Spacer(Modifier.height(16.dp))
             Button(
                 onClick = onStartFresh,
                 shape = MaterialTheme.shapes.extraLarge,
@@ -209,7 +211,7 @@ private fun NameStep(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         com.iattend.app.core.ui.AvatarPicker(
             pictureUri = avatarUri,
             onPictureSelected = onAvatarPicked,

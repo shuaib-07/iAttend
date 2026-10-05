@@ -15,7 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -61,8 +62,19 @@ import com.iattend.app.core.ui.SubjectColorPalette
 import com.iattend.app.core.ui.hapticClick
 import com.iattend.app.core.ui.rememberUnsavedChangesGuard
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.material.icons.filled.Check
+import com.iattend.app.core.domain.stats.isValidAttendancePercentage
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SubjectEditorScreen(
     onBack: () -> Unit,
@@ -74,6 +86,8 @@ fun SubjectEditorScreen(
     val tutorialController = LocalTutorialController.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
+    val overrideValid = state.requiredPercentageOverride.isBlank() || isValidAttendancePercentage(state.requiredPercentageOverride.toFloatOrNull())
+    val totalValid = state.totalMode != TotalMode.KNOWN || (state.knownTotalClasses.toIntOrNull()?.let { it > 0 } == true)
 
     LaunchedEffect(state.saved) {
         if (state.saved) {
@@ -91,7 +105,7 @@ fun SubjectEditorScreen(
             TopAppBar(
                 title = { Text(if (viewModel.isNew) "Add Subject" else "Edit Subject") },
                 navigationIcon = {
-                    SquircleIconButton(Icons.Default.ArrowBack, contentDescription = "Back", onClick = guardedBack)
+                    SquircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = guardedBack)
                 },
                 actions = {
                     if (!viewModel.isNew) {
@@ -108,35 +122,39 @@ fun SubjectEditorScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().padding(padding).imePadding().padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
                 label = { Text("Subject name") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth().tutorialTarget("subject_name_field")
             )
             OutlinedTextField(
                 value = state.code,
                 onValueChange = viewModel::onCodeChange,
                 label = { Text("Code (optional)") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = state.teacherName,
                 onValueChange = viewModel::onTeacherNameChange,
                 label = { Text("Teacher's name (optional)") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text("Color")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SubjectColorPalette.forEach { color ->
+            Text("Color", style = MaterialTheme.typography.titleSmall)
+            FlowRow(modifier = Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SubjectColorPalette.forEachIndexed { index, color ->
                     ColorSwatch(
                         color = color,
                         selected = color.toArgb() == state.colorArgb,
-                        onClick = { viewModel.onColorChange(color.toArgb()) }
+                        onClick = { viewModel.onColorChange(color.toArgb()) },
+                        label = "Subject color ${index + 1}"
                     )
                 }
             }
@@ -145,10 +163,15 @@ fun SubjectEditorScreen(
                 value = state.requiredPercentageOverride,
                 onValueChange = viewModel::onRequiredOverrideChange,
                 label = { Text("Required % override (optional)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                suffix = { Text("%") },
+                isError = !overrideValid,
+                supportingText = { Text(if (overrideValid) "Leave blank to use the Settings default." else "Enter a percentage from 0 to 100.") },
                 modifier = Modifier.fillMaxWidth().tutorialTarget("required_pct_override_field")
             )
 
-            Text("Total classes")
+            Text("Total classes", style = MaterialTheme.typography.titleSmall)
             Column(modifier = Modifier.tutorialTarget("total_mode_radios")) {
             TotalMode.entries.forEach { mode ->
                 Row(
@@ -171,6 +194,9 @@ fun SubjectEditorScreen(
                     value = state.knownTotalClasses,
                     onValueChange = viewModel::onKnownTotalChange,
                     label = { Text("Total classes this term") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = !totalValid,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -206,6 +232,8 @@ fun SubjectEditorScreen(
                     value = state.totalWeightedMarks,
                     onValueChange = viewModel::onTotalWeightedMarksChange,
                     label = { Text("Total possible weighted marks (e.g. 100)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -217,7 +245,7 @@ fun SubjectEditorScreen(
                 )
             }
 
-            Text("Class reminders")
+            Text("Class reminders", style = MaterialTheme.typography.titleSmall)
             val reminderOverride = state.reminderOffsetsOverride
             if (reminderOverride == null) {
                 TextButton(onClick = { viewModel.onReminderOffsetsOverrideChange("") }) {
@@ -234,6 +262,7 @@ fun SubjectEditorScreen(
             }
 
             MorphingSaveButton(
+                enabled = state.name.isNotBlank() && overrideValid && totalValid && !isSaving,
                 onClick = {
                     isSaving = true
                     viewModel.save()
@@ -285,11 +314,15 @@ fun SubjectEditorScreen(
 }
 
 @Composable
-private fun ColorSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
+private fun ColorSwatch(color: Color, selected: Boolean, onClick: () -> Unit, label: String) {
     androidx.compose.foundation.layout.Box(
         modifier = Modifier
-            .size(if (selected) 36.dp else 28.dp)
+            .size(48.dp)
             .background(color, CircleShape)
-            .clickable(onClick = onClick)
-    )
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        if (selected) Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
+    }
 }

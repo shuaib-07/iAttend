@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import com.iattend.app.core.ui.EmptyListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -69,7 +71,10 @@ fun TimetableVersionListScreen(
             FloatingActionButton(onClick = hapticClick(onAddVersion), modifier = Modifier.tutorialTarget("add_version_fab")) { Icon(Icons.Default.Add, contentDescription = "Add timetable version") }
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)) {
+            if (versions.isEmpty()) item {
+                EmptyListState("No timetable versions yet", "Create a version and add your weekly class slots.", actionLabel = "Add timetable version", onAction = onAddVersion)
+            }
             items(versions, key = { it.id }) { version ->
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).animateItem().clickable { onEditVersion(version.id) },
@@ -81,14 +86,14 @@ fun TimetableVersionListScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text("Effective: ${formatDateWithLong(version.effectiveFrom)}", style = MaterialTheme.typography.titleMedium)
                                 Text("Tap to edit slots", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

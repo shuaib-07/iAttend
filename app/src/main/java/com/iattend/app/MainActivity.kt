@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
@@ -17,6 +18,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.luminance
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +46,13 @@ class MainActivity : ComponentActivity() {
             val accentColor by appViewModel.accentColor.collectAsState()
 
             IAttendTheme(themeMode = themeMode, dynamicColorEnabled = dynamicColorEnabled, accentColor = accentColor) {
+                val useDarkSystemIcons = MaterialTheme.colorScheme.surfaceContainer.luminance() > 0.5f
+                SideEffect {
+                    WindowCompat.getInsetsController(window, window.decorView).apply {
+                        isAppearanceLightStatusBars = useDarkSystemIcons
+                        isAppearanceLightNavigationBars = useDarkSystemIcons
+                    }
+                }
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val onboardingComplete by appViewModel.onboardingComplete.collectAsState()
 

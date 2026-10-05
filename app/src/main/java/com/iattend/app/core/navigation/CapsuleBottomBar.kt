@@ -17,22 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BeachAccess
-import androidx.compose.material.icons.filled.EventRepeat
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -155,7 +145,7 @@ fun CapsuleBottomBar(navController: NavHostController, backdrop: Backdrop, desti
                     backdrop = backdrop,
                     surfaceTint = surfaceTint,
                     glassEffects = glassEffects,
-                    iconColor = Color.White,
+                    iconColor = MaterialTheme.colorScheme.onSurface,
                     onClick = hapticClick { DevSupportTrigger.requestOpen.value = true }
                 )
             } else {
@@ -164,7 +154,7 @@ fun CapsuleBottomBar(navController: NavHostController, backdrop: Backdrop, desti
                     backdrop = backdrop,
                     surfaceTint = surfaceTint,
                     glassEffects = glassEffects,
-                    iconColor = Color.White
+                    iconColor = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -222,7 +212,7 @@ private fun CapsuleFab(
     }
 }
 
-/** "+" FAB with a management dropdown, shared by every root tab except Settings. */
+/** Shared bloom menu, preserving the capsule's glass trigger. */
 @Composable
 private fun CapsuleManageMenuFab(
     navController: NavHostController,
@@ -231,46 +221,16 @@ private fun CapsuleManageMenuFab(
     iconColor: Color,
     glassEffects: BackdropEffectScope.() -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box {
+    BloomManageMenu(navController, triggerColor = surfaceTint, backdrop = backdrop, glassEffects = glassEffects) { onClick, expanded ->
         CapsuleFab(
             lottieAsset = "lottie/plus_to_x.json",
             selected = expanded,
-            contentDescription = if (expanded) "Close" else "Manage",
+            contentDescription = "Manage",
             backdrop = backdrop,
             surfaceTint = surfaceTint,
             iconColor = iconColor,
             glassEffects = glassEffects,
-            onClick = hapticClick { expanded = !expanded }
+            onClick = onClick
         )
-
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Subjects") },
-                leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(SubjectListRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Timetable versions") },
-                leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(TimetableVersionListRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Holidays") },
-                leadingIcon = { Icon(Icons.Default.BeachAccess, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(HolidayListRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Recurring holidays") },
-                leadingIcon = { Icon(Icons.Default.EventRepeat, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(RecurringHolidayRoute) }
-            )
-            DropdownMenuItem(
-                text = { Text("Extra classes") },
-                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
-                onClick = { expanded = false; navController.navigate(ExtraClassesRoute()) }
-            )
-        }
     }
 }

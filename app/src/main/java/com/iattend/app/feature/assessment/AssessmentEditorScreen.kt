@@ -6,11 +6,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Assignment
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Title
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Score
+import androidx.compose.material.icons.outlined.Grade
+import androidx.compose.material.icons.outlined.Percent
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.FactCheck
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,7 +51,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.AssessmentAttemptStatus
@@ -59,6 +74,8 @@ import com.iattend.app.core.ui.formatDateShort
 import com.iattend.app.core.ui.formatTime
 import com.iattend.app.core.ui.hapticClick
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +86,9 @@ fun AssessmentEditorScreen(
     val state by viewModel.state.collectAsState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
+    LaunchedEffect(isSaving, state.validationError) {
+        if (state.validationError != null) isSaving = false
+    }
 
     LaunchedEffect(state.saved, state.deleted) {
         if (state.saved) {
@@ -84,7 +104,7 @@ fun AssessmentEditorScreen(
             TopAppBar(
                 title = { Text(if (viewModel.isNew) "Add Assessment" else "Edit Assessment") },
                 navigationIcon = {
-                    SquircleIconButton(Icons.Default.ArrowBack, contentDescription = "Back", onClick = onBack)
+                    SquircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = onBack)
                 },
                 actions = {
                     if (!viewModel.isNew) {
@@ -99,15 +119,18 @@ fun AssessmentEditorScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding).imePadding()
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (state.subjectName.isNotBlank()) {
+                Text(state.subjectName, style = MaterialTheme.typography.titleLarge)
+            }
             DirectionAwareTabs(
                 tabs = listOf(
-                    TabItem(AssessmentType.TEST, "Test"),
-                    TabItem(AssessmentType.EXAM, "Exam")
+                    TabItem(AssessmentType.TEST, "Test", Icons.Outlined.Assignment),
+                    TabItem(AssessmentType.EXAM, "Exam", Icons.Outlined.School)
                 ),
                 selectedTab = state.type,
                 onTabSelected = viewModel::onTypeChange
@@ -143,7 +166,7 @@ fun AssessmentEditorScreen(
                                 readOnly = true,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                label = { Text("Linked class (optional)") }
+                                label = { AssessmentFieldLabel("Linked class (optional)", Icons.Outlined.Link) }
                             )
                             ExposedDropdownMenu(
                                 expanded = expanded,
@@ -174,7 +197,7 @@ fun AssessmentEditorScreen(
                 }
             }
 
-            Text("Attempt status", style = MaterialTheme.typography.titleSmall)
+            AssessmentFieldLabel("Attempt status", Icons.Outlined.FactCheck)
             if (state.linkedOccurrenceId != null && !state.isAttemptOverridden) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -218,15 +241,18 @@ fun AssessmentEditorScreen(
             OutlinedTextField(
                 value = state.title,
                 onValueChange = viewModel::onTitleChange,
-                label = { Text("Title (optional)") },
+                label = { AssessmentFieldLabel("Title (optional)", Icons.Outlined.Title) },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             DatePickerField(
-                label = if (state.linkedOccurrenceId != null) "Date (inherited from class)" else "Date",
+                label = "Scheduled date",
                 date = state.date,
                 onDateChange = if (state.linkedOccurrenceId == null) viewModel::onDateChange else { _ -> },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                detailedLayout = true,
+                enabled = state.linkedOccurrenceId == null
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,13 +260,15 @@ fun AssessmentEditorScreen(
                     label = if (state.linkedOccurrenceId != null) "Start (inherited)" else "Start time",
                     time = state.startTime,
                     onTimeChange = if (state.linkedOccurrenceId == null) viewModel::onStartTimeChange else { _ -> },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    labelContent = { AssessmentFieldLabel(if (state.linkedOccurrenceId != null) "Start (inherited)" else "Start time", Icons.Outlined.Schedule) }
                 )
                 TimePickerField(
                     label = if (state.linkedOccurrenceId != null) "End (inherited)" else "End time",
                     time = state.endTime,
                     onTimeChange = if (state.linkedOccurrenceId == null) viewModel::onEndTimeChange else { _ -> },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    labelContent = { AssessmentFieldLabel(if (state.linkedOccurrenceId != null) "End (inherited)" else "End time", Icons.Outlined.Timer) }
                 )
             }
 
@@ -248,14 +276,18 @@ fun AssessmentEditorScreen(
                 OutlinedTextField(
                     value = state.totalMarks,
                     onValueChange = viewModel::onTotalMarksChange,
-                    label = { Text("Total marks") },
+                    label = { AssessmentFieldLabel("Total marks", Icons.Outlined.Score) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f)
                 )
                 if (state.attemptStatus == AssessmentAttemptStatus.ATTEMPTED) {
                     OutlinedTextField(
                         value = state.obtainedMarks,
                         onValueChange = viewModel::onObtainedMarksChange,
-                        label = { Text("Obtained marks") },
+                        label = { AssessmentFieldLabel("Obtained marks", Icons.Outlined.Grade) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -269,7 +301,9 @@ fun AssessmentEditorScreen(
             OutlinedTextField(
                 value = state.weight,
                 onValueChange = viewModel::onWeightChange,
-                label = { Text(weightLabel) },
+                label = { AssessmentFieldLabel(weightLabel, if (state.subjectGradingSystem == WeightageSystem.PERCENTAGE) Icons.Outlined.Percent else Icons.Outlined.Score) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -294,15 +328,19 @@ fun AssessmentEditorScreen(
             OutlinedTextField(
                 value = state.portions,
                 onValueChange = viewModel::onPortionsChange,
-                label = { Text("Portions / syllabus coverage (optional)") },
+                label = { AssessmentFieldLabel("Portions / syllabus (optional)", Icons.Outlined.MenuBook) },
+                minLines = 3,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text("Reminders")
-            ReminderOffsetPicker(
-                selectedMinutes = state.reminderOffsets,
-                onChange = viewModel::onReminderOffsetsChange
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                AssessmentFieldLabel("Reminders & notifications", Icons.Outlined.NotificationsActive)
+                ReminderOffsetPicker(
+                    selectedMinutes = state.reminderOffsets,
+                    onChange = viewModel::onReminderOffsetsChange,
+                    descriptiveChips = true
+                )
+            }
 
             MorphingSaveButton(
                 onClick = {
@@ -343,5 +381,13 @@ fun AssessmentEditorScreen(
             },
             dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } }
         )
+    }
+}
+
+@Composable
+private fun AssessmentFieldLabel(text: String, icon: ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        Text(text)
     }
 }

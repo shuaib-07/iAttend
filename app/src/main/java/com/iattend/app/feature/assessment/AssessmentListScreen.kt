@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import com.iattend.app.core.ui.EmptyListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,7 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -53,22 +55,22 @@ fun AssessmentListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (subjectName.isBlank()) "Tests & Exams" else "$subjectName - Tests & Exams") },
+                title = { Text(if (subjectName.isBlank()) "Tests & Exams" else "$subjectName - Tests & Exams", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                 navigationIcon = {
-                    SquircleIconButton(Icons.Default.ArrowBack, contentDescription = "Back", onClick = onBack)
+                    SquircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = onBack)
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = hapticClick(onAdd)) { Icon(Icons.Default.Add, contentDescription = "Add") }
+            FloatingActionButton(onClick = hapticClick(onAdd)) { Icon(Icons.Default.Add, contentDescription = "Add test or exam") }
         }
     ) { padding ->
         if (assessments.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No tests or exams yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                EmptyListState("No tests or exams yet", "Schedule an assessment for this subject.", actionLabel = "Add test or exam", onAction = onAdd)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)) {
                 items(assessments, key = { it.id }) { assessment ->
                     AssessmentRow(assessment, onClick = { onEdit(assessment.id) }, modifier = Modifier.animateItem())
                 }
@@ -88,9 +90,9 @@ private fun AssessmentRow(assessment: Assessment, onClick: () -> Unit, modifier:
         ) {
             Box(modifier = Modifier.size(12.dp).background(typeColor, CircleShape))
             Column(modifier = Modifier.weight(1f)) {
-                Text(assessment.title?.takeIf { it.isNotBlank() } ?: assessment.type.name)
+                Text(assessment.title?.takeIf { it.isNotBlank() } ?: assessment.type.name.lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium)
                 val dateText = "${formatDateShort(assessment.date)} - ${formatTime(assessment.startTime, LocalTimeFormat.current)} to ${formatTime(assessment.endTime, LocalTimeFormat.current)}"
-                Text(dateText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${assessment.type.name.lowercase().replaceFirstChar { it.uppercase() }} · $dateText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             assessment.totalMarks?.let { Text("$it marks", style = MaterialTheme.typography.bodySmall) }
         }

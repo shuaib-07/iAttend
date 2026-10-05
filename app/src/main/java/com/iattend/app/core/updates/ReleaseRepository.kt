@@ -111,23 +111,23 @@ class ReleaseRepository @Inject constructor(
         return listOf(
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Home Screen Widget Overhaul",
-                description = "Cycle between days using left/right chevron arrows, tap date to reset, view EXTRA class badges, and see instant status shading (green for present, red for absent, strikethrough for cancelled)."
+                title = "Assessments and Exams",
+                description = "Schedule tests linked to classes or independent exams, set weightage, record attempts and marks, and track weighted results separately from attendance."
             ),
             FeatureHighlight(
                 category = "IMPROVEMENT",
-                title = "Calendar Attendance Undo & Toggle",
-                description = "Tap an already-marked status chip (Present, Absent, Cancel) in the Calendar to instantly undo/toggle it back to Unmarked."
+                title = "A More Useful Calendar",
+                description = "See tests and exams alongside classes, browse subject schedules, manage holidays with a calendar, and review scheduled extra classes in history."
             ),
             FeatureHighlight(
                 category = "IMPROVEMENT",
-                title = "Smart Notification Sync",
-                description = "Marking attendance in-app or before class automatically cancels pending before/after class reminders and clears active notifications."
+                title = "Refined Navigation and Appearance",
+                description = "Choose the new Rectangle Expandable navigation style, with improved theme-aware colors and clearer contrast across the app."
             ),
             FeatureHighlight(
-                category = "BUG FIX",
-                title = "Extra Classes Guard Fix",
-                description = "Resolved unwarranted 'Discard changes?' dialog when exiting after adding and saving extra classes."
+                category = "IMPROVEMENT",
+                title = "Polished App Experience",
+                description = "Forms, empty states, settings, and calendar scrolling have been refined for clearer, more consistent use."
             )
         )
     }

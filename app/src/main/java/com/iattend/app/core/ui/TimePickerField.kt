@@ -7,6 +7,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,7 +33,8 @@ fun TimePickerField(
     label: String,
     time: LocalTime?,
     onTimeChange: (LocalTime) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    labelContent: (@Composable () -> Unit)? = null
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var dialogFormat by remember { mutableStateOf(TimeFormat.TWELVE_HOUR) }
@@ -52,7 +57,16 @@ fun TimePickerField(
         value = time?.let { formatTime(it, savedFormat) } ?: "",
         onValueChange = {},
         readOnly = true,
-        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = {
+            IconButton(onClick = {
+                dialogFormat = savedFormat
+                dialogHour = time?.hour ?: 9
+                dialogMinute = time?.minute ?: 0
+                showDialog = true
+            }) { Icon(Icons.Outlined.Schedule, contentDescription = "Choose $label") }
+        },
+        label = labelContent ?: { Text(label) },
         interactionSource = interactionSource,
         modifier = modifier
     )

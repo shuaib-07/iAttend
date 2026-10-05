@@ -99,7 +99,7 @@ fun SubjectDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.subject?.name ?: "") },
+                title = { Text(state.subject?.name ?: "Subject", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                 navigationIcon = {
                     SquircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = onBack)
                 },
@@ -140,7 +140,7 @@ fun SubjectDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             Text("Tests & Exams", style = MaterialTheme.typography.titleMedium)
                             Text(
                                 "Manage assessments, weightages and scores",
@@ -577,14 +577,14 @@ private fun SubjectCalendarSection(
                         selected -> MaterialTheme.colorScheme.onPrimaryContainer
                         today -> MaterialTheme.colorScheme.primary
                         inMonth -> MaterialTheme.colorScheme.onSurface
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     }
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .padding(2.dp)
-                            .height(44.dp)
+                            .height(48.dp)
                             .clip(shape)
                             .background(statusColor)
                             .then(

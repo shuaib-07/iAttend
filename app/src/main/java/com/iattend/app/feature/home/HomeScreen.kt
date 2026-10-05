@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.iattend.app.core.navigation.LocalNavigationContentPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
@@ -74,7 +75,7 @@ fun HomeScreen(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
         item {
             GreetingRow(
@@ -324,8 +325,6 @@ private fun TodayScheduleSection(
     onItemClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (items.isEmpty()) return
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -342,12 +341,12 @@ private fun TodayScheduleSection(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
             Text(
-                "${items.size} item${if (items.size > 1) "s" else ""}",
+                "${items.size} item${if (items.size != 1) "s" else ""}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-
+        if (items.isEmpty()) Text("No classes, tests or exams scheduled today.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         items.forEach { item ->
             when (item) {
                 is TodayScheduleItem.ClassItem -> {
@@ -574,4 +573,3 @@ private fun AssessmentScheduleCard(
         }
     }
 }
-

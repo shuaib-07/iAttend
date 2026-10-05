@@ -20,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.ui.AvatarPicker
 import com.iattend.app.core.ui.MorphingSaveButton
@@ -40,7 +42,7 @@ fun ProfileSheetContent(
     var draftName by remember(name) { mutableStateOf(name) }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -57,6 +59,7 @@ fun ProfileSheetContent(
             value = draftName,
             onValueChange = { draftName = it },
             label = { Text("Name") },
+            singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
         MorphingSaveButton(

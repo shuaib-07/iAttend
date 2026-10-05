@@ -18,6 +18,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -53,6 +55,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 enum class MorphingButtonState {
     IDLE,
@@ -134,14 +137,17 @@ fun MorphingSaveButton(
     shape: Shape = MaterialTheme.shapes.medium
 ) {
     var state by remember { mutableStateOf(MorphingButtonState.IDLE) }
+    var saveFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
     MorphingSaveButton(
         onClick = {
             if (state == MorphingButtonState.PENDING) return@MorphingSaveButton
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             state = MorphingButtonState.PENDING
+            saveFailed = false
             scope.launch {
                 try {
                     onAction()
@@ -154,12 +160,15 @@ fun MorphingSaveButton(
                         delay(resetAfterMs)
                         state = MorphingButtonState.IDLE
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     state = MorphingButtonState.IDLE
+                    saveFailed = true
                 }
             }
         },
-        modifier = modifier,
+        modifier = Modifier.fillMaxWidth(),
         label = label,
         pendingLabel = pendingLabel,
         successLabel = successLabel,
@@ -168,6 +177,8 @@ fun MorphingSaveButton(
         showArrow = showArrow,
         shape = shape
     )
+    if (saveFailed) Text("Couldn't save. Please try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 /**

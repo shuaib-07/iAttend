@@ -37,6 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.data.db.RecurringHolidayMode
@@ -85,6 +89,7 @@ fun RecurringHolidayScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DayRuleRow(
     day: DayOfWeek,
@@ -106,11 +111,11 @@ private fun DayRuleRow(
     ) {
         Column(modifier = Modifier.padding(4.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { onToggleOff(!active) }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().toggleable(value = active, role = Role.Switch, onValueChange = onToggleOff).padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(day.name.lowercase().replaceFirstChar { it.uppercase() }, color = accentColor)
+                Text(day.name.lowercase().replaceFirstChar { it.uppercase() }, color = accentColor, modifier = Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     TextButton(onClick = onToggleExpanded) { Text(if (expanded) "Hide" else "Customize") }
                     Box(
@@ -126,7 +131,7 @@ private fun DayRuleRow(
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     Text("Off on specific weeks instead of every week:", style = MaterialTheme.typography.labelMedium)
-                    Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         val weeksOfMonth = rule?.weeksOfMonth ?: 0
                         (1..5).forEach { week ->
                             val selected = mode == RecurringHolidayMode.PATTERN && weeksOfMonth and (1 shl (week - 1)) != 0

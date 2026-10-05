@@ -16,6 +16,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 @Composable
 fun PreferenceSwitch(
@@ -24,7 +26,7 @@ fun PreferenceSwitch(
     subtitle: String = "",
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    leadingIcon: @Composable () -> Unit = {},
+    leadingIcon: (@Composable () -> Unit)? = null,
     padding: PaddingValues = listItemPadding,
     isFirst: Boolean = false,
     isLast: Boolean = false,
@@ -36,13 +38,14 @@ fun PreferenceSwitch(
         exit = fadeOut() + slideOutVertically { -it / 4 }
     ) {
         ListItem(
+            modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
             headline = { Text(title) },
             supporting = { if (subtitle.isNotEmpty()) Text(subtitle) },
-            leading = { leadingIcon() },
+            leading = leadingIcon,
             trailing = {
                 Switch(
                     checked = checked,
-                    onCheckedChange = onCheckedChange,
+                    onCheckedChange = null,
                     thumbContent = {
                         Icon(
                             if (checked) Icons.Outlined.Check else Icons.Outlined.Close,

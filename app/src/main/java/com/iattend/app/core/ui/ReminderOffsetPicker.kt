@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilterChip
@@ -57,7 +58,8 @@ import com.iattend.app.core.notifications.ReminderOffset
 fun ReminderOffsetPicker(
     selectedMinutes: List<Int>,
     onChange: (List<Int>) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    descriptiveChips: Boolean = false
 ) {
     var armedOffset by remember { mutableStateOf<Int?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -75,7 +77,15 @@ fun ReminderOffsetPicker(
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             selectedMinutes.sorted().forEach { minutes ->
                 ReminderChip(
-                    label = ReminderOffset.label(minutes),
+                    label = if (descriptiveChips) {
+                        val (amount, unit) = when {
+                            minutes % 1440 == 0 -> minutes / 1440 to "day"
+                            minutes % 60 == 0 -> minutes / 60 to "hour"
+                            else -> minutes to "minute"
+                        }
+                        "$amount $unit${if (amount == 1) "" else "s"} before"
+                    } else ReminderOffset.label(minutes),
+                    showBell = descriptiveChips,
                     armed = armedOffset == minutes,
                     onTap = { armedOffset = if (armedOffset == minutes) null else minutes },
                     onRemove = {
@@ -111,11 +121,14 @@ fun ReminderOffsetPicker(
 }
 
 @Composable
-private fun ReminderChip(label: String, armed: Boolean, onTap: () -> Unit, onRemove: () -> Unit) {
+private fun ReminderChip(label: String, showBell: Boolean, armed: Boolean, onTap: () -> Unit, onRemove: () -> Unit) {
     FilterChip(
         selected = true,
         onClick = onTap,
         label = { Text(label) },
+        leadingIcon = if (showBell) {
+            { Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        } else null,
         trailingIcon = {
             AnimatedVisibility(
                 visible = armed,

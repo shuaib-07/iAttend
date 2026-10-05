@@ -1,6 +1,6 @@
 package com.iattend.app.feature.settings
 
-import android.widget.Toast
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +31,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.ui.SpringAlertDialog
@@ -47,8 +51,9 @@ fun ExportImportSheetContent(
 ) {
     val message by viewModel.message.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
-    val context = LocalContext.current
+
     var showImportConfirm by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // template options state
     var selectedIds by remember(subjects) {
@@ -69,7 +74,7 @@ fun ExportImportSheetContent(
 
     LaunchedEffect(message) {
         message?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
     }
@@ -82,6 +87,7 @@ fun ExportImportSheetContent(
             Text("Export / Import", style = MaterialTheme.typography.titleLarge)
             SquircleIconButton(Icons.Default.Close, contentDescription = "Close", onClick = onDismiss)
         }
+        SnackbarHost(snackbarHostState)
 
         // Full backup section
         Text("Full Backup", style = MaterialTheme.typography.titleMedium)
@@ -146,17 +152,17 @@ fun ExportImportSheetContent(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().toggleable(value = includeExtra, role = Role.Checkbox, onValueChange = { includeExtra = it }),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(checked = includeExtra, onCheckedChange = { includeExtra = it })
+            Checkbox(checked = includeExtra, onCheckedChange = null)
             Text("Include extra classes", style = MaterialTheme.typography.bodyMedium)
         }
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().toggleable(value = includeAssessments, role = Role.Checkbox, onValueChange = { includeAssessments = it }),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(checked = includeAssessments, onCheckedChange = { includeAssessments = it })
+            Checkbox(checked = includeAssessments, onCheckedChange = null)
             Text("Include exams & tests", style = MaterialTheme.typography.bodyMedium)
         }
 

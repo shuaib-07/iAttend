@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionContext
@@ -57,6 +58,7 @@ fun FullscreenPopup(
     onDismiss: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    BackHandler(enabled = onDismiss != null) { onDismiss?.invoke() }
     val view = LocalView.current
     val parentComposition = rememberCompositionContext()
     val currentContent by rememberUpdatedState(content)

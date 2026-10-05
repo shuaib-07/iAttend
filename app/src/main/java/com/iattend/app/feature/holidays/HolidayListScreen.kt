@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -95,7 +96,7 @@ fun HolidayListScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding).imePadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -402,14 +403,14 @@ private fun HolidayCalendarView(
                         selected -> MaterialTheme.colorScheme.onPrimaryContainer
                         today -> MaterialTheme.colorScheme.primary
                         inMonth -> MaterialTheme.colorScheme.onSurface
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     }
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .padding(2.dp)
-                            .height(44.dp)
+                            .height(48.dp)
                             .clip(shape)
                             .background(bgColor)
                             .then(

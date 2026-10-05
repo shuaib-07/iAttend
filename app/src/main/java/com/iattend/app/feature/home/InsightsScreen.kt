@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.iattend.app.core.navigation.LocalNavigationContentPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.iattend.app.core.ui.AttendanceHeatmap
 import com.iattend.app.core.ui.DateRangePickerField
 import com.iattend.app.ui.theme.Motion
+import com.iattend.app.core.ui.EmptyListState
+import androidx.compose.foundation.layout.widthIn
 import java.time.LocalDate
 
 @Composable
@@ -53,8 +56,11 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
+        if (state.subjects.isEmpty()) item {
+            EmptyListState("No attendance insights yet", "Add subjects and mark classes to see your attendance trends here.")
+        }
         // Date range filter for insights
         item {
             DateRangePickerField(
@@ -125,9 +131,9 @@ private fun SubjectBarRow(summary: SubjectSummary) {
         Text(
             summary.subject.name,
             style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(88.dp)
+            modifier = Modifier.width(112.dp)
         )
         Box(
             modifier = Modifier
@@ -146,7 +152,7 @@ private fun SubjectBarRow(summary: SubjectSummary) {
             "${summary.percentage.toInt()}%",
             style = MaterialTheme.typography.bodySmall,
             color = barColor,
-            modifier = Modifier.width(36.dp)
+            modifier = Modifier.widthIn(min = 40.dp)
         )
     }
 }

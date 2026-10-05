@@ -5,17 +5,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import com.iattend.app.core.ui.EmptyListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -29,8 +34,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -53,33 +58,34 @@ fun AllAssessmentsScreen(
     onBack: () -> Unit,
     onAddForSubject: (Long) -> Unit,
     onEdit: (subjectId: Long, assessmentId: Long) -> Unit,
-    viewModel: AllAssessmentsViewModel = hiltViewModel()
+    viewModel: AllAssessmentsViewModel = hiltViewModel(),
+    initiallyShowSubjectPicker: Boolean = false
 ) {
     val rows by viewModel.rows.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
-    var showSubjectPicker by remember { mutableStateOf(false) }
+    var showSubjectPicker by rememberSaveable { mutableStateOf(initiallyShowSubjectPicker) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Tests & Exams") },
                 navigationIcon = {
-                    SquircleIconButton(Icons.Default.ArrowBack, contentDescription = "Back", onClick = onBack)
+                    SquircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = onBack)
                 }
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = hapticClick { showSubjectPicker = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
+                Icon(Icons.Default.Add, contentDescription = "Add test or exam")
             }
         }
     ) { padding ->
         if (rows.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No tests or exams yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                EmptyListState("No tests or exams yet", "Choose a subject and schedule its next assessment.", actionLabel = "Add test or exam", onAction = { showSubjectPicker = true })
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)) {
                 items(rows, key = { it.assessment.id }) { row ->
                     AllAssessmentRow(row, onClick = { onEdit(row.assessment.subjectId, row.assessment.id) }, modifier = Modifier.animateItem())
                 }
@@ -90,7 +96,10 @@ fun AllAssessmentsScreen(
     if (showSubjectPicker) {
         SubjectPickerDialog(
             subjects = subjects,
-            onDismiss = { showSubjectPicker = false },
+            onDismiss = {
+                showSubjectPicker = false
+                if (initiallyShowSubjectPicker) onBack()
+            },
             onPick = { subject ->
                 showSubjectPicker = false
                 onAddForSubject(subject.id)
@@ -111,10 +120,10 @@ private fun AllAssessmentRow(row: AllAssessmentsRow, onClick: () -> Unit, modifi
         ) {
             Box(modifier = Modifier.size(12.dp).background(typeColor, CircleShape))
             Column(modifier = Modifier.weight(1f)) {
-                Text(assessment.title?.takeIf { it.isNotBlank() } ?: row.subjectName)
+                Text(assessment.title?.takeIf { it.isNotBlank() } ?: row.subjectName, style = MaterialTheme.typography.titleMedium)
                 Text(row.subjectName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val dateText = "${formatDateShort(assessment.date)} - ${formatTime(assessment.startTime, LocalTimeFormat.current)} to ${formatTime(assessment.endTime, LocalTimeFormat.current)}"
-                Text(dateText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${assessment.type.name.lowercase().replaceFirstChar { it.uppercase() }} · $dateText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             assessment.totalMarks?.let { Text("$it marks", style = MaterialTheme.typography.bodySmall) }
         }
@@ -130,7 +139,7 @@ private fun SubjectPickerDialog(subjects: List<Subject>, onDismiss: () -> Unit, 
             if (subjects.isEmpty()) {
                 Text("Add a subject first, then come back to add its tests and exams.")
             } else {
-                Column {
+                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
                     subjects.forEach { subject ->
                         Text(
                             subject.name,

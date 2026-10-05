@@ -27,6 +27,7 @@ import com.iattend.app.core.tutorial.TutorialHost
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -121,6 +122,8 @@ fun AppNavHost(startDestination: Any) {
 
     var showNotificationSheet by remember { mutableStateOf(false) }
     val bottomScrimHeightPx = with(LocalDensity.current) { 140.dp.toPx() }
+    val configuration = LocalConfiguration.current
+    val useNavigationRail = configuration.screenWidthDp >= 600 && configuration.screenHeightDp >= 480
 
     // Content offset must track showBottomBar *instantly*, not animate - a Scaffold topBar
     // that fades the header (AnimatedVisibility, alpha-only) keeps the header's full measured
@@ -131,11 +134,13 @@ fun AppNavHost(startDestination: Any) {
     var headerHeightPx by remember { mutableStateOf(0) }
     val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
 
-    CompositionLocalProvider(LocalTutorialController provides tutorialController, LocalTimeFormat provides timeFormat) {
+    CompositionLocalProvider(LocalTutorialController provides tutorialController, LocalTimeFormat provides timeFormat,
+        LocalNavigationContentPadding provides if (useNavigationRail) 24.dp else 150.dp) {
     Box(modifier = Modifier.fillMaxSize().background(scaffoldBackground)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(start = if (showBottomBar && useNavigationRail) 80.dp else 0.dp)
                 .padding(top = if (showBottomBar) headerHeightDp else 0.dp)
                 .background(scaffoldBackground)
         ) {
@@ -153,7 +158,7 @@ fun AppNavHost(startDestination: Any) {
                             .hazeSource(hazeState)
                             .then(if (navBarStyle == NavBarStyle.CAPSULE) Modifier.layerBackdrop(backdrop) else Modifier)
                             .then(
-                                if (showBottomBar) {
+                                if (showBottomBar && !useNavigationRail) {
                                     Modifier.progressiveBlur(
                                         blurRadius = 40f,
                                         height = bottomScrimHeightPx,
@@ -215,6 +220,18 @@ fun AppNavHost(startDestination: Any) {
                             )
                         }
                         composable<AssessmentEditorRoute> { AssessmentEditorScreen(onBack = { navController.popBackStack() }) }
+                        composable<AddAssessmentRoute> {
+                            AllAssessmentsScreen(
+                                initiallyShowSubjectPicker = true,
+                                onBack = { navController.popBackStack() },
+                                onAddForSubject = { subjectId ->
+                                    navController.navigate(AssessmentEditorRoute(subjectId)) {
+                                        popUpTo<AddAssessmentRoute> { inclusive = true }
+                                    }
+                                },
+                                onEdit = { subjectId, assessmentId -> navController.navigate(AssessmentEditorRoute(subjectId, assessmentId)) }
+                            )
+                        }
                         composable<AllAssessmentsRoute> {
                             AllAssessmentsScreen(
                                 onBack = { navController.popBackStack() },
@@ -273,11 +290,16 @@ fun AppNavHost(startDestination: Any) {
             }
 
             if (showBottomBar) {
-                when (navBarStyle) {
+                if (!useNavigationRail) when (navBarStyle) {
                     NavBarStyle.PILL -> com.iattend.app.core.navigation.AppBottomBar(navController, destination = lastTabDestination, modifier = Modifier.align(Alignment.BottomCenter))
                     NavBarStyle.CAPSULE -> com.iattend.app.core.navigation.CapsuleBottomBar(navController, backdrop = backdrop, destination = lastTabDestination, modifier = Modifier.align(Alignment.BottomCenter))
+                    NavBarStyle.EXPANDABLE -> ExpandableBottomBar(navController, destination = lastTabDestination, modifier = Modifier.align(Alignment.BottomCenter))
                 }
             }
+        }
+
+        if (showBottomBar && useNavigationRail) {
+            AppNavigationRail(navController, lastTabDestination, Modifier.align(Alignment.CenterStart))
         }
 
         AnimatedVisibility(
@@ -286,6 +308,7 @@ fun AppNavHost(startDestination: Any) {
             exit = fadeOut(tween(150)),
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .padding(start = if (useNavigationRail) 80.dp else 0.dp)
                 .onSizeChanged { headerHeightPx = it.height }
         ) {
             BrandHeader(

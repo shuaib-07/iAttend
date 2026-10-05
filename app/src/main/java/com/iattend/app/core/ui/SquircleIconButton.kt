@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 
 /**
  * Back/close TopAppBar nav icon, wrapped in a colored squircle per design.md's shape system.
@@ -35,13 +36,13 @@ fun SquircleIconButton(
 ) {
     Box(
         modifier = modifier
-            .padding(6.dp)
-            .size(size)
+            .size(maxOf(48.dp, size))
             .clip(MaterialTheme.shapes.small)
-            .background(containerColor)
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = contentColor, modifier = Modifier.size(iconSize))
+        Box(Modifier.size(size).clip(MaterialTheme.shapes.small).background(containerColor), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = contentDescription, tint = contentColor, modifier = Modifier.size(iconSize))
+        }
     }
 }

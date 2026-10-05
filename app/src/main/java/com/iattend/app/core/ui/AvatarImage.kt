@@ -12,6 +12,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,16 +41,24 @@ fun AvatarImage(pictureUri: String?, size: Dp, modifier: Modifier = Modifier) {
                 contentDescription = "No profile picture",
                 modifier = Modifier.size(size / 2)
             )
-            pictureUri.startsWith("http") -> AsyncImage(
+            pictureUri.startsWith("http") -> {
+                var showFallback by remember(pictureUri) { mutableStateOf(true) }
+                if (showFallback) Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(size / 2))
+                AsyncImage(
                 model = pictureUri,
+                contentScale = ContentScale.Crop,
+                onSuccess = { showFallback = false },
+                onError = { showFallback = true },
                 contentDescription = "Profile picture",
                 modifier = Modifier.size(size).clip(CircleShape)
             )
+            }
             else -> {
                 val bitmap = remember(pictureUri) { BitmapFactory.decodeFile(pictureUri) }
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
+                        contentScale = ContentScale.Crop,
                         contentDescription = "Profile picture",
                         modifier = Modifier.size(size).clip(CircleShape)
                     )

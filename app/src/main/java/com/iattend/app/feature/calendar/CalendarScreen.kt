@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +43,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,6 +69,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.iattend.app.core.navigation.LocalNavigationContentPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -73,6 +77,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -156,235 +161,233 @@ fun CalendarScreen(
         viewModel.updateAssessmentAttemptStatus(assessment.id, targetStatus)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { showDatePicker = true }
-                    .padding(vertical = 4.dp, horizontal = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                AnimatedContent(
-                    targetState = YearMonth.from(selectedDate),
-                    transitionSpec = {
-                        if (targetState.isAfter(initialState)) {
-                            (slideInHorizontally(
-                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                initialOffsetX = { 20 }
-                            ) + fadeIn(tween(200))).togetherWith(
-                                slideOutHorizontally(
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                    targetOffsetX = { -20 }
-                                ) + fadeOut(tween(150))
-                            )
-                        } else {
-                            (slideInHorizontally(
-                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                initialOffsetX = { -20 }
-                            ) + fadeIn(tween(200))).togetherWith(
-                                slideOutHorizontally(
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                    targetOffsetX = { 20 }
-                                ) + fadeOut(tween(150))
-                            )
-                        }
-                    },
-                    label = "MonthHeaderTitleSlide"
-                ) { ym ->
-                    Text(
-                        text = "${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-                Icon(
-                    Icons.Default.GridView,
-                    contentDescription = "Pick date",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { onAddExtra(selectedDate) }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add extra class")
-                }
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.setViewMode(
-                        if (viewMode == CalendarViewMode.WEEK) CalendarViewMode.MONTH else CalendarViewMode.WEEK
-                    )
-                }) {
-                    Icon(
-                        if (viewMode == CalendarViewMode.WEEK) Icons.Default.CalendarMonth else Icons.Default.ViewWeek,
-                        contentDescription = "Toggle calendar view"
-                    )
-                }
-            }
-        }
-
-        var dragAccum by remember { mutableFloatStateOf(0f) }
-
-        if (viewMode == CalendarViewMode.WEEK) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.previousWeek()
-                }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous week")
-                }
-                AnimatedContent(
-                    targetState = visibleWeek.firstOrNull() ?: LocalDate.now(),
-                    transitionSpec = {
-                        if (targetState.isAfter(initialState)) {
-                            (slideInHorizontally(
-                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                initialOffsetX = { fullWidth -> fullWidth }
-                            ) + fadeIn(tween(220))).togetherWith(
-                                slideOutHorizontally(
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                    targetOffsetX = { fullWidth -> -fullWidth }
-                                ) + fadeOut(tween(180))
-                            )
-                        } else {
-                            (slideInHorizontally(
-                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                initialOffsetX = { fullWidth -> -fullWidth }
-                            ) + fadeIn(tween(220))).togetherWith(
-                                slideOutHorizontally(
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-                                    targetOffsetX = { fullWidth -> fullWidth }
-                                ) + fadeOut(tween(180))
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .pointerInputDragWeek(
-                            onDragDelta = { dragAccum += it },
-                            onDragEnd = {
-                                if (dragAccum <= -SWIPE_THRESHOLD_PX) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    viewModel.nextWeek()
-                                } else if (dragAccum >= SWIPE_THRESHOLD_PX) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    viewModel.previousWeek()
+        item(key = "calendar_header") {
+            Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 4.dp, horizontal = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        AnimatedContent(
+                            targetState = YearMonth.from(selectedDate),
+                            transitionSpec = {
+                                if (targetState.isAfter(initialState)) {
+                                    (slideInHorizontally(
+                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                        initialOffsetX = { 20 }
+                                    ) + fadeIn(tween(200))).togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                            targetOffsetX = { -20 }
+                                        ) + fadeOut(tween(150))
+                                    )
+                                } else {
+                                    (slideInHorizontally(
+                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                        initialOffsetX = { -20 }
+                                    ) + fadeIn(tween(200))).togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                            targetOffsetX = { 20 }
+                                        ) + fadeOut(tween(150))
+                                    )
                                 }
-                                dragAccum = 0f
-                            }
-                        ),
-                    label = "WeekSlideTransition"
-                ) { weekStart ->
-                    val currentWeek = remember(weekStart) {
-                        (0..6).map { weekStart.plusDays(it.toLong()) }
-                    }
-                    WeekStripRow(
-                        week = currentWeek,
-                        selectedDate = selectedDate,
-                        assessmentDatesInWeek = assessmentDatesInWeek,
-                        onDateSelected = { date ->
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            viewModel.selectDate(date)
+                            },
+                            label = "MonthHeaderTitleSlide"
+                        ) { ym ->
+                            Text(
+                                text = "${ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${ym.year}",
+                                style = MaterialTheme.typography.titleLarge
+                            )
                         }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { onAddExtra(selectedDate) }) {
+                            Icon(Icons.Default.Add, contentDescription = "Add extra class")
+                        }
+                        IconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            viewModel.setViewMode(
+                                if (viewMode == CalendarViewMode.WEEK) CalendarViewMode.MONTH else CalendarViewMode.WEEK
+                            )
+                        }) {
+                            Icon(
+                                if (viewMode == CalendarViewMode.WEEK) Icons.Default.CalendarMonth else Icons.Default.ViewWeek,
+                                contentDescription = "Toggle calendar view"
+                            )
+                        }
+                    }
+                }
+
+                var dragAccum by remember { mutableFloatStateOf(0f) }
+
+                if (viewMode == CalendarViewMode.WEEK) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            viewModel.previousWeek()
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous week")
+                        }
+                        AnimatedContent(
+                            targetState = visibleWeek.firstOrNull() ?: LocalDate.now(),
+                            transitionSpec = {
+                                if (targetState.isAfter(initialState)) {
+                                    (slideInHorizontally(
+                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                        initialOffsetX = { fullWidth -> fullWidth }
+                                    ) + fadeIn(tween(220))).togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                            targetOffsetX = { fullWidth -> -fullWidth }
+                                        ) + fadeOut(tween(180))
+                                    )
+                                } else {
+                                    (slideInHorizontally(
+                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                        initialOffsetX = { fullWidth -> -fullWidth }
+                                    ) + fadeIn(tween(220))).togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                                            targetOffsetX = { fullWidth -> fullWidth }
+                                        ) + fadeOut(tween(180))
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .pointerInputDragWeek(
+                                    onDragDelta = { dragAccum += it },
+                                    onDragEnd = {
+                                        if (dragAccum <= -SWIPE_THRESHOLD_PX) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            viewModel.nextWeek()
+                                        } else if (dragAccum >= SWIPE_THRESHOLD_PX) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            viewModel.previousWeek()
+                                        }
+                                        dragAccum = 0f
+                                    }
+                                ),
+                            label = "WeekSlideTransition"
+                        ) { weekStart ->
+                            val currentWeek = remember(weekStart) {
+                                (0..6).map { weekStart.plusDays(it.toLong()) }
+                            }
+                            WeekStripRow(
+                                week = currentWeek,
+                                selectedDate = selectedDate,
+                                assessmentDatesInWeek = assessmentDatesInWeek,
+                                onDateSelected = { date ->
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    viewModel.selectDate(date)
+                                }
+                            )
+                        }
+                        IconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            viewModel.nextWeek()
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next week")
+                        }
+                    }
+                } else {
+                    MonthCalendarGrid(
+                        selectedDate = selectedDate,
+                        attendanceStatusByDate = attendanceStatusByDate,
+                        attendancePercentage = monthAttendancePercentage,
+                        assessmentDates = assessmentDates,
+                        onDateSelected = viewModel::selectDate,
+                        onPreviousMonth = viewModel::previousMonth,
+                        onNextMonth = viewModel::nextMonth
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Schedule · ${selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())}, ${formatDateShort(selectedDate)}",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            "${rows.size} ${if (rows.size == 1) "class" else "classes"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                IconButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.nextWeek()
-                }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next week")
-                }
-            }
-        } else {
-            MonthCalendarGrid(
-                selectedDate = selectedDate,
-                attendanceStatusByDate = attendanceStatusByDate,
-                attendancePercentage = monthAttendancePercentage,
-                assessmentDates = assessmentDates,
-                onDateSelected = viewModel::selectDate,
-                onPreviousMonth = viewModel::previousMonth,
-                onNextMonth = viewModel::nextMonth
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Schedule · ${selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())}, ${formatDateShort(selectedDate)}",
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    "${rows.size} ${if (rows.size == 1) "class" else "classes"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
             }
         }
 
         if (rows.isEmpty() && assessmentRows.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No classes scheduled", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            item(key = "empty_schedule") {
+                Box(modifier = Modifier.fillParentMaxHeight(0.5f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("No classes scheduled", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 20.dp)) {
-                items(assessmentRows, key = { "a${it.assessment.id}" }) { row ->
-                    AssessmentCard(
-                        row = row,
-                        onClick = {
-                            row.subject?.let { sub ->
-                                onAssessmentClick?.invoke(sub.id, row.assessment.id)
+            items(assessmentRows, key = { "a${it.assessment.id}" }) { row ->
+                AssessmentCard(
+                    row = row,
+                    onClick = {
+                        row.subject?.let { sub ->
+                            onAssessmentClick?.invoke(sub.id, row.assessment.id)
+                        }
+                    },
+                    onAttemptStatusChange = { newStatus ->
+                        handleAssessmentStatusAttempt(row.assessment, newStatus)
+                    },
+                    modifier = Modifier.animateItem()
+                )
+            }
+            items(rows, key = { it.occurrence.id }) { row ->
+                TimelineRow(
+                    row = row,
+                    isPast = isPast,
+                    onSubjectClick = { row.subject?.id?.let(onSubjectClick) },
+                    onMark = { status ->
+                        scope.launch {
+                            val conflicts = viewModel.findScoredLinkedTestConflicts(row.occurrence.id, status)
+                            if (conflicts.isNotEmpty()) {
+                                conflictingTests = conflicts
+                                scoreConflictData = row.occurrence to status
+                            } else {
+                                viewModel.mark(row.occurrence, status)
                             }
-                        },
-                        onAttemptStatusChange = { newStatus ->
-                            handleAssessmentStatusAttempt(row.assessment, newStatus)
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-                items(rows, key = { it.occurrence.id }) { row ->
-                    TimelineRow(
-                        row = row,
-                        isPast = isPast,
-                        onSubjectClick = { row.subject?.id?.let(onSubjectClick) },
-                        onMark = { status ->
-                            scope.launch {
-                                val conflicts = viewModel.findScoredLinkedTestConflicts(row.occurrence.id, status)
-                                if (conflicts.isNotEmpty()) {
-                                    conflictingTests = conflicts
-                                    scoreConflictData = row.occurrence to status
-                                } else {
-                                    viewModel.mark(row.occurrence, status)
-                                }
-                            }
-                        },
-                        onLongClick = {
-                            selectedOccurrenceForMenu = row
-                        },
-                        onSetCancelReason = { reason -> viewModel.setCancelReason(row.occurrence, reason) },
-                        onTestClick = { testId ->
-                            row.subject?.id?.let { subId -> onAssessmentClick?.invoke(subId, testId) }
-                        },
-                        onTestAttemptStatusChange = { test, targetStatus ->
-                            handleAssessmentStatusAttempt(test, targetStatus)
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
+                        }
+                    },
+                    onLongClick = {
+                        selectedOccurrenceForMenu = row
+                    },
+                    onSetCancelReason = { reason -> viewModel.setCancelReason(row.occurrence, reason) },
+                    onTestClick = { testId ->
+                        row.subject?.id?.let { subId -> onAssessmentClick?.invoke(subId, testId) }
+                    },
+                    onTestAttemptStatusChange = { test, targetStatus ->
+                        handleAssessmentStatusAttempt(test, targetStatus)
+                    },
+                    modifier = Modifier.animateItem()
+                )
             }
         }
     }
@@ -755,7 +758,7 @@ private fun MonthGridBody(
     )
 
     val shape = MaterialTheme.shapes.medium
-    val cellHeight = 44.dp
+    val cellHeight = 48.dp
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val colWidth = maxWidth / 7f
@@ -782,7 +785,7 @@ private fun MonthGridBody(
                             selected -> MaterialTheme.colorScheme.primary
                             today -> MaterialTheme.colorScheme.primary
                             inMonth -> MaterialTheme.colorScheme.onSurface
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                         }
 
                         Box(
@@ -983,7 +986,7 @@ private fun AssessmentCard(
     val haptics = LocalHapticFeedback.current
 
     Row(modifier = modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-        Column(modifier = Modifier.width(58.dp)) {
+        Column(modifier = Modifier.width(64.dp * LocalDensity.current.fontScale)) {
             Text(formatTime(assessment.startTime, LocalTimeFormat.current), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
         }
         Column(
@@ -1101,6 +1104,7 @@ private fun AssessmentCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TimelineRow(
     row: DayOccurrenceRow,
@@ -1122,7 +1126,7 @@ private fun TimelineRow(
     Row(
         modifier = modifier.fillMaxWidth().padding(bottom = 16.dp).tutorialTarget("mark_chip")
     ) {
-        Column(modifier = Modifier.width(58.dp)) {
+        Column(modifier = Modifier.width(64.dp * LocalDensity.current.fontScale)) {
             occurrence.startTime?.let {
                 Text(formatTime(it, LocalTimeFormat.current), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
             }
@@ -1149,6 +1153,11 @@ private fun TimelineRow(
                 .weight(1f)
                 .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                    MaterialTheme.shapes.large
+                )
                 .pointerInput(occurrence.id) {
                     detectTapGestures(
                         onLongPress = {
@@ -1334,17 +1343,19 @@ private fun TimelineRow(
                 }
             }
 
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 val markAndReport: (OccurrenceStatus) -> Unit = { status ->
                     onMark(status)
                     tutorialController?.reportSignal(TutorialSignal.OCCURRENCE_MARKED)
                 }
-                MarkChip("Cancel", occurrence.status == OccurrenceStatus.CANCELLED, isPast, Modifier.weight(1f)) { markAndReport(OccurrenceStatus.CANCELLED) }
-                MarkChip("Absent", occurrence.status == OccurrenceStatus.ABSENT, isPast, Modifier.weight(1f)) { markAndReport(OccurrenceStatus.ABSENT) }
-                MarkChip("Present", occurrence.status == OccurrenceStatus.PRESENT, isPast, Modifier.weight(1f)) { markAndReport(OccurrenceStatus.PRESENT) }
+                val chipModifier = Modifier.weight(1f).widthIn(min = 72.dp * LocalDensity.current.fontScale)
+                MarkChip("Cancel", occurrence.status == OccurrenceStatus.CANCELLED, isPast, chipModifier) { markAndReport(OccurrenceStatus.CANCELLED) }
+                MarkChip("Absent", occurrence.status == OccurrenceStatus.ABSENT, isPast, chipModifier) { markAndReport(OccurrenceStatus.ABSENT) }
+                MarkChip("Present", occurrence.status == OccurrenceStatus.PRESENT, isPast, chipModifier) { markAndReport(OccurrenceStatus.PRESENT) }
             }
 
             if (occurrence.status == OccurrenceStatus.CANCELLED) {

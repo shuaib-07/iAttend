@@ -1,6 +1,7 @@
 package com.iattend.app.core.ui
 
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -41,12 +42,13 @@ fun RoomComboBox(
         OutlinedTextField(
             value = value,
             onValueChange = { onValueChange(it); expanded = true },
+            singleLine = true,
             label = { Text(label) },
             supportingText = supportingText?.let { { Text(it) } },
             textStyle = MaterialTheme.typography.bodyLarge.copy(
                 color = if (inherited) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
             ),
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable, true)
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable, true)
         )
         ExposedDropdownMenu(
             expanded = expanded && filtered.isNotEmpty(),

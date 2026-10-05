@@ -1,5 +1,14 @@
 package com.iattend.app.feature.settings
 
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.iattend.app.core.domain.stats.isValidAttendancePercentage
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import kotlin.math.roundToInt
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -25,7 +34,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -55,6 +64,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.iattend.app.core.navigation.LocalNavigationContentPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -114,7 +124,7 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 150.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         SettingsSection(title = "Attendance") {
@@ -136,7 +146,7 @@ fun SettingsScreen(onNavigateToAppearance: () -> Unit = {}, onNavigateToAbout: (
                     onClick = { showTimeFormatOptions = true },
                     trailingContent = {
                         IconButton(onClick = { showTimeFormatHelp = true }) {
-                            Icon(Icons.Default.HelpOutline, contentDescription = "Where time format is used")
+                            Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "Where time format is used")
                         }
                     }
                 )
@@ -329,7 +339,7 @@ private fun ResetDataSheetContent(settingsViewModel: SettingsViewModel, onDismis
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Delete / Reset data", style = MaterialTheme.typography.titleLarge)
             SquircleIconButton(Icons.Default.Close, contentDescription = "Close", onClick = onDismiss)
@@ -556,31 +566,59 @@ private fun SettingsIconRow(
         },
         trailing = trailingContent ?: { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         shape = position.toShape(),
+        listColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
         onClick = onClick
     )
 }
 
 @Composable
 private fun RequiredPercentageSheetContent(requiredPercentage: Float, onChange: (Float) -> Unit, onDismiss: () -> Unit) {
-    var text by remember { mutableStateOf(requiredPercentage.toString()) }
+    var text by rememberSaveable { mutableStateOf(requiredPercentage.toString()) }
     LaunchedEffect(requiredPercentage) { text = requiredPercentage.toString() }
+    val parsed = text.toFloatOrNull()
+    val valid = isValidAttendancePercentage(parsed)
+    var sliderValue by remember { mutableStateOf(requiredPercentage.takeIf(::isValidAttendancePercentage) ?: 75f) }
+    LaunchedEffect(parsed) { if (valid) sliderValue = parsed!! }
 
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Required attendance percentage", style = MaterialTheme.typography.titleLarge)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Required attendance percentage", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             SquircleIconButton(Icons.Default.Close, contentDescription = "Close", onClick = onDismiss)
         }
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
             label = { Text("Required %") },
+            suffix = { Text("%") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            isError = !valid,
+            supportingText = {
+                Text(if (valid) "Slider: 5% steps. Type a value for finer control." else "Enter a percentage between 0 and 100.")
+            },
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
         )
+        Slider(
+            value = sliderValue,
+            onValueChange = { value ->
+                sliderValue = value
+                text = value.roundToInt().toString()
+            },
+            valueRange = 0f..100f,
+            steps = 19,
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Required attendance percentage" }
+        )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf(0, 25, 50, 75, 100).forEach { value ->
+                Text("$value%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         MorphingSaveButton(
             onAction = {
-                text.toFloatOrNull()?.let(onChange)
+                text.toFloatOrNull()?.takeIf(::isValidAttendancePercentage)?.let(onChange)
             },
-            enabled = text.toFloatOrNull() != null,
+            enabled = valid,
             onSuccess = onDismiss,
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
         )

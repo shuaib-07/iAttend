@@ -23,13 +23,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.iattend.app.ui.theme.foregroundFor
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -67,7 +74,7 @@ fun AppearanceScreen(
             TopAppBar(
                 title = { Text("Appearance") },
                 navigationIcon = {
-                    SquircleIconButton(Icons.Default.ArrowBack, contentDescription = "Back", onClick = onBack)
+                    SquircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", onClick = onBack)
                 },
                 scrollBehavior = scrollBehaviorSmall,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.0f), scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow)
@@ -149,37 +156,32 @@ fun AppearanceSelectors(viewModel: SettingsViewModel) {
             )
         }
 
-        // Style 2-box (Dynamic/Default analogue -> Pill/Capsule)
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier.weight(1f).height(80.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (navBarStyle == NavBarStyle.PILL) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)
-                    .clickable { viewModel.setNavBarStyle(NavBarStyle.PILL) },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Pill", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if (navBarStyle == NavBarStyle.PILL) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Classic", style = MaterialTheme.typography.labelSmall, color = (if (navBarStyle == NavBarStyle.PILL) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.7f))
-                }
-            }
-            Box(
-                modifier = Modifier.weight(1f).height(80.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (navBarStyle == NavBarStyle.CAPSULE) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)
-                    .clickable { viewModel.setNavBarStyle(NavBarStyle.CAPSULE) },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Capsule", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if (navBarStyle == NavBarStyle.CAPSULE) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Floating", style = MaterialTheme.typography.labelSmall, color = (if (navBarStyle == NavBarStyle.CAPSULE) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.7f))
+            listOf(
+                Triple(NavBarStyle.PILL, "Pill", "Classic"),
+                Triple(NavBarStyle.CAPSULE, "Capsule", "Floating"),
+                Triple(NavBarStyle.EXPANDABLE, "Rectangle", "Expandable")
+            ).forEach { (style, label, subtitle) ->
+                val selected = navBarStyle == style
+                val foreground = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                Box(
+                    modifier = Modifier.weight(1f).heightIn(min = 80.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)
+                        .selectable(selected = selected, role = Role.RadioButton, onClick = { viewModel.setNavBarStyle(style) })
+                        .padding(horizontal = 4.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = foreground)
+                        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = foreground.copy(alpha = 0.7f))
+                    }
                 }
             }
         }
-
         // Grouped PreferenceSwitches — Dynamic color (reuses global PreferenceSwitch)
         Column(verticalArrangement = Arrangement.spacedBy(1.5.dp), modifier = Modifier.animateContentSize()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -253,10 +255,11 @@ private fun AccentChip(accent: String, color: Color, isSelected: Boolean, onClic
                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                     shape = CircleShape
                 )
-                .clickable(onClick = onClick),
+                .selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)
+                .semantics { contentDescription = label },
             contentAlignment = Alignment.Center
         ) {
-            if (isSelected) Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(24.dp))
+            if (isSelected) Icon(Icons.Default.Check, contentDescription = null, tint = foregroundFor(color), modifier = Modifier.size(24.dp))
         }
         Text(label, style = MaterialTheme.typography.labelSmall, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -275,11 +278,11 @@ private fun ThemeBox(
         modifier = modifier
             .clip(shape)
             .background(if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape)
-            .clickable(onClick = onClick, interactionSource = remember { MutableInteractionSource() }, indication = null)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
             Text(label, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, color = if (selected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface)
         }

@@ -48,6 +48,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -168,7 +169,7 @@ fun TimetableVersionEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit: From ${state.effectiveFrom}") },
+                title = { Text("Edit: From ${state.effectiveFrom}", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                 navigationIcon = {
                     SquircleIconButton(Icons.Default.Close, contentDescription = "Close", onClick = guardedBack)
                 }
@@ -176,12 +177,13 @@ fun TimetableVersionEditorScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize().padding(padding).imePadding().padding(16.dp).verticalScroll(rememberScrollState())
         ) {
             OutlinedTextField(
                 value = state.label,
                 onValueChange = viewModel::onLabelChange,
                 label = { Text("Label (optional)") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             DatePickerField(
@@ -218,7 +220,7 @@ fun TimetableVersionEditorScreen(
                         colors = if (isHoliday) {
                             FilterChipDefaults.filterChipColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             FilterChipDefaults.filterChipColors()

@@ -4,6 +4,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,13 +38,15 @@ fun DateRangePickerField(
         startDate != null && endDate != null -> "${formatDateShort(startDate)} - ${formatDateShort(endDate)}"
         startDate != null -> "${formatDateShort(startDate)} - …"
         endDate != null -> "… - ${formatDateShort(endDate)}"
-        else -> ""
+        else -> "All dates"
     }
 
     OutlinedTextField(
         value = displayValue,
         onValueChange = {},
         readOnly = true,
+        singleLine = true,
+        trailingIcon = { IconButton(onClick = { showDialog = true }) { Icon(Icons.Outlined.DateRange, contentDescription = "Choose $label") } },
         label = { Text(label) },
         interactionSource = interactionSource,
         modifier = modifier

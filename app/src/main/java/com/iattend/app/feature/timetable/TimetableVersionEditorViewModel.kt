@@ -127,6 +127,7 @@ class TimetableVersionEditorViewModel @Inject constructor(
                 }
             }
             val initDay = route.initialDayOfWeek?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
+            initialSnapshot = Snapshot(label, effectiveFrom, slots)
             _state.value = _state.value.copy(
                 label = label,
                 effectiveFrom = effectiveFrom,
@@ -135,7 +136,6 @@ class TimetableVersionEditorViewModel @Inject constructor(
                 initialDayOfWeek = initDay,
                 initialEditSlotLocalId = initialSlotLocalId
             )
-            initialSnapshot = Snapshot(label, effectiveFrom, slots)
         }
         viewModelScope.launch {
             recurringHolidayRuleDao.getAll().collect { rules ->

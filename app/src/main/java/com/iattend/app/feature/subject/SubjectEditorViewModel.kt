@@ -61,10 +61,12 @@ class SubjectEditorViewModel @Inject constructor(
         viewModelScope.launch {
             if (isNew) {
                 val existingCount = subjectDao.getAll().first().size
-                _state.value = _state.value.copy(colorArgb = nextSubjectColor(existingCount))
+                val loadedState = _state.value.copy(colorArgb = nextSubjectColor(existingCount))
+                initialState = loadedState
+                _state.value = loadedState
             } else {
                 subjectDao.getAll().first().find { it.id == route.subjectId }?.let { s ->
-                    _state.value = SubjectEditorState(
+                    val loadedState = SubjectEditorState(
                         subjectId = s.id,
                         code = s.code,
                         name = s.name,
@@ -79,9 +81,10 @@ class SubjectEditorViewModel @Inject constructor(
                         gradingSystem = s.gradingSystem,
                         totalWeightedMarks = s.totalWeightedMarks?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: ""
                     )
+                    initialState = loadedState
+                    _state.value = loadedState
                 }
             }
-            initialState = _state.value
         }
     }
 
