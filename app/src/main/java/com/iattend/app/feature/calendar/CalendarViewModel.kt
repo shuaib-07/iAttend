@@ -81,18 +81,25 @@ class CalendarViewModel @Inject constructor(
     }
 
     val attendanceStatusByDate: StateFlow<Map<LocalDate, OccurrenceStatus>> = combine(
-        classOccurrenceDao.getAll(), minuteTicks
-    ) { occurrences, _ ->
-            val today = LocalDate.now()
-            val now = LocalTime.now()
-            occurrences.groupBy { it.date }.mapNotNull { (date, rows) ->
-                attendanceStatusForDay(rows, today, now)?.let { date to it }
-            }.toMap()
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+        classOccurrenceDao.getAll(), subjectDao.getAll(), settingsRepository.settings, minuteTicks
+    ) { occurrences, subjects, settings, _ ->
+        val activeSemId = settings.activeSemesterId
+        val validSubjectIds = if (activeSemId != null) subjects.filter { it.semesterId == activeSemId }.map { it.id }.toSet() else subjects.map { it.id }.toSet()
+        val semOccurrences = occurrences.filter { it.subjectId in validSubjectIds }
+        val today = LocalDate.now()
+        val now = LocalTime.now()
+        semOccurrences.groupBy { it.date }.mapNotNull { (date, rows) ->
+            attendanceStatusForDay(rows, today, now)?.let { date to it }
+        }.toMap()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    val monthAttendancePercentage: StateFlow<Float?> = combine(_selectedDate, classOccurrenceDao.getAll()) { date, occurrences ->
-        attendancePercentageForMonth(occurrences, YearMonth.from(date))
+    val monthAttendancePercentage: StateFlow<Float?> = combine(
+        _selectedDate, classOccurrenceDao.getAll(), subjectDao.getAll(), settingsRepository.settings
+    ) { date, occurrences, subjects, settings ->
+        val activeSemId = settings.activeSemesterId
+        val validSubjectIds = if (activeSemId != null) subjects.filter { it.semesterId == activeSemId }.map { it.id }.toSet() else subjects.map { it.id }.toSet()
+        val semOccurrences = occurrences.filter { it.subjectId in validSubjectIds }
+        attendancePercentageForMonth(semOccurrences, YearMonth.from(date))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val isPast: StateFlow<Boolean> = selectedDate
@@ -114,9 +121,12 @@ class CalendarViewModel @Inject constructor(
         assessmentDao.getAll(),
         settingsRepository.settings
     ) { date, occurrences, subjects, assessments, settings ->
-        val subjectsById = subjects.associateBy { it.id }
+        val activeSemId = settings.activeSemesterId
+        val validSubjects = if (activeSemId != null) subjects.filter { it.semesterId == activeSemId } else subjects
+        val validSubjectIds = validSubjects.map { it.id }.toSet()
+        val subjectsById = validSubjects.associateBy { it.id }
         occurrences
-            .filter { it.date == date }
+            .filter { it.date == date && it.subjectId in validSubjectIds }
             .sortedWith(compareBy({ it.startTime }, { it.id }))
             .map { occ ->
                 val subject = subjectsById[occ.subjectId]
@@ -133,11 +143,14 @@ class CalendarViewModel @Inject constructor(
     val assessmentsForSelectedDate: StateFlow<List<DayAssessmentRow>> = combine(
         _selectedDate,
         assessmentDao.getAll(),
-        subjectDao.getAll()
-    ) { date, allAssessments, subjects ->
+        subjectDao.getAll(),
+        settingsRepository.settings
+    ) { date, allAssessments, subjects, settings ->
+        val activeSemId = settings.activeSemesterId
+        val validSubjectIds = if (activeSemId != null) subjects.filter { it.semesterId == activeSemId }.map { it.id }.toSet() else subjects.map { it.id }.toSet()
         val subjectsById = subjects.associateBy { it.id }
         allAssessments
-            .filter { it.date == date && it.linkedOccurrenceId == null }
+            .filter { it.date == date && it.linkedOccurrenceId == null && it.subjectId in validSubjectIds }
             .sortedWith(compareBy({ it.startTime }, { it.id }))
             .map { DayAssessmentRow(it, subjectsById[it.subjectId]) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

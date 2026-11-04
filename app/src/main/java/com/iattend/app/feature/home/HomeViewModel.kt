@@ -9,8 +9,11 @@ import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.OccurrenceStatus
+import com.iattend.app.core.data.db.Semester
+import com.iattend.app.core.data.db.SemesterDao
 import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.stats.AttendanceStatsCalculator
+import com.iattend.app.core.domain.stats.StreakCalculator
 import com.iattend.app.feature.calendar.DaySummary
 import com.iattend.app.feature.calendar.isPastOccurrence
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,7 +60,16 @@ data class AttendancePoint(val date: LocalDate, val cumulativePercent: Float)
 
 data class WeeklyAttendancePoint(val weekStart: LocalDate, val percent: Float)
 
+data class SemesterAttendanceStat(
+    val semester: Semester,
+    val attended: Int,
+    val total: Int,
+    val percentage: Float
+)
+
 data class HomeState(
+    val activeSemester: Semester? = null,
+    val allSemestersStats: List<SemesterAttendanceStat> = emptyList(),
     val overallAttended: Int = 0,
     val overallTotal: Int = 0,
     val projectedTotal: Int = 0,
@@ -76,7 +88,10 @@ data class HomeState(
     val semesterAbsent: Int = 0,
     val semesterUnmarked: Int = 0,
     val pastUnmarkedClasses: List<ClassOccurrence> = emptyList(),
-    val todaySchedule: List<TodayScheduleItem> = emptyList()
+    val todaySchedule: List<TodayScheduleItem> = emptyList(),
+    val currentStreak: Int = 0,
+    val bestStreak: Int = 0,
+    val markedOccurrences: List<ClassOccurrence> = emptyList()
 ) {
     /** Projected total when any subject has one (Known/Computed), else falls back to marked-so-far. */
     val summaryDenominator: Int get() = if (projectedTotal > 0) projectedTotal else overallTotal
@@ -140,31 +155,64 @@ class HomeViewModel @Inject constructor(
     subjectDao: SubjectDao,
     classOccurrenceDao: ClassOccurrenceDao,
     assessmentDao: AssessmentDao,
-    settingsRepository: SettingsRepository
+    settingsRepository: SettingsRepository,
+    semesterDao: SemesterDao
 ) : ViewModel() {
     val state: StateFlow<HomeState> = combine(
         subjectDao.getAll(),
         classOccurrenceDao.getAll(),
         assessmentDao.getAll(),
         settingsRepository.settings,
+        semesterDao.getAll(),
         refreshMinute
-    ) { subjects, occurrences, assessments, settings, _ ->
-        val bySubject = occurrences.groupBy { it.subjectId }
-        val summaries = subjects.map { subject ->
-            val requiredPercentage = subject.requiredPercentageOverride ?: settings.requiredPercentageDefault
+    ) { params ->
+        @Suppress("UNCHECKED_CAST")
+        val subjects = params[0] as List<Subject>
+        @Suppress("UNCHECKED_CAST")
+        val occurrences = params[1] as List<ClassOccurrence>
+        @Suppress("UNCHECKED_CAST")
+        val assessments = params[2] as List<Assessment>
+        val settings = params[3] as com.iattend.app.core.datastore.AppSettings
+        @Suppress("UNCHECKED_CAST")
+        val semesters = params[4] as List<Semester>
+
+        val activeSemesterId = settings.activeSemesterId
+        val activeSemester = semesters.find { it.id == activeSemesterId }
+            ?: semesters.firstOrNull { !it.isArchived }
+            ?: semesters.firstOrNull()
+
+        val semesterSubjects = if (activeSemester != null) {
+            subjects.filter { it.semesterId == activeSemester.id }
+        } else subjects
+
+        val semesterSubjectIds = semesterSubjects.map { it.id }.toSet()
+        val semesterOccurrences = if (activeSemester != null) {
+            occurrences.filter { it.subjectId in semesterSubjectIds }
+        } else occurrences
+
+        val semesterAssessments = if (activeSemester != null) {
+            assessments.filter { it.subjectId in semesterSubjectIds }
+        } else assessments
+
+        val targetPercentage = activeSemester?.targetPercentage ?: settings.requiredPercentageDefault
+
+        val bySubject = semesterOccurrences.groupBy { it.subjectId }
+        val summaries = semesterSubjects.map { subject ->
+            val requiredPercentage = subject.requiredPercentageOverride ?: targetPercentage
+            val trackingEnd = activeSemester?.endDate ?: settings.trackingEndDate
             val stats = AttendanceStatsCalculator.compute(
-                subject, bySubject[subject.id].orEmpty(), requiredPercentage, settings.trackingEndDate
+                subject, bySubject[subject.id].orEmpty(), requiredPercentage, trackingEnd
             )
             SubjectSummary(subject, stats, requiredPercentage)
         }
         // Present-count intensity per spec #4 (Cashiro style: 0/1/2/3-4/5+), replaces DaySummary status coloring
-        val heatmap = occurrences.groupBy { it.date }.mapValues { (_, dayOccurrences) ->
+        val heatmap = semesterOccurrences.groupBy { it.date }.mapValues { (_, dayOccurrences) ->
             dayOccurrences.filter { it.status == OccurrenceStatus.PRESENT }.sumOf { it.classCount }
         }
 
         // Same attended/totalSoFar rule as AttendanceStatsCalculator (PRESENT+ABSENT counted,
         // UNMARKED/CANCELLED excluded) so the trend's last point matches overallPercentage.
-        val markedOccurrences = occurrences.filter {
+        val markedOccurrences = semesterOccurrences.filter {
             it.status == OccurrenceStatus.PRESENT || it.status == OccurrenceStatus.ABSENT
         }
         var runningAttended = 0
@@ -177,8 +225,12 @@ class HomeViewModel @Inject constructor(
 
         val today = LocalDate.now()
         val now = LocalTime.now()
-        val period = attendancePeriod(settings.trackingStartDate, settings.trackingEndDate, today)
-        val periodAttendance = summarizePeriod(occurrences, period, today, now)
+        val period = if (activeSemester != null) {
+            AttendancePeriod(activeSemester.startDate, activeSemester.endDate, activeSemester.name, null)
+        } else {
+            attendancePeriod(settings.trackingStartDate, settings.trackingEndDate, today)
+        }
+        val periodAttendance = summarizePeriod(semesterOccurrences, period, today, now)
 
         // Weekly avg % for BalanceChart (spec #5): group marked occurrences by ISO week, compute weekly % and smooth
         val weeklyTrend = markedOccurrences.groupBy { it.date.with(java.time.DayOfWeek.MONDAY) }
@@ -189,14 +241,14 @@ class HomeViewModel @Inject constructor(
                 WeeklyAttendancePoint(weekStart, if (tot == 0) 0f else att * 100f / tot)
             }
 
-        val todayOccurrences = occurrences.filter { it.date == today }
-        val todayAssessments = assessments.filter { it.date == today }
+        val todayOccurrences = semesterOccurrences.filter { it.date == today }
+        val todayAssessments = semesterAssessments.filter { it.date == today }
         val linkedTestsByOccId = todayAssessments.filter { it.linkedOccurrenceId != null }.groupBy { it.linkedOccurrenceId }
 
         val classItems = todayOccurrences.map { occ ->
             TodayScheduleItem.ClassItem(
                 occurrence = occ,
-                subject = subjects.find { it.id == occ.subjectId },
+                subject = semesterSubjects.find { it.id == occ.subjectId },
                 linkedTests = linkedTestsByOccId[occ.id].orEmpty()
             )
         }
@@ -204,18 +256,37 @@ class HomeViewModel @Inject constructor(
         val independentAssessmentItems = todayAssessments.filter { it.linkedOccurrenceId == null }.map { a ->
             TodayScheduleItem.AssessmentItem(
                 assessment = a,
-                subject = subjects.find { it.id == a.subjectId }
+                subject = semesterSubjects.find { it.id == a.subjectId }
             )
         }
 
         val todaySchedule = (classItems + independentAssessmentItems)
             .sortedWith(compareBy({ it.time ?: LocalTime.MIN }, { if (it is TodayScheduleItem.ClassItem) 0 else 1 }))
 
+        val streakStats = StreakCalculator.compute(semesterOccurrences)
+
+        val allSemestersStats = semesters.map { sem ->
+            val semSubjects = subjects.filter { it.semesterId == sem.id }
+            val semSubIds = semSubjects.map { it.id }.toSet()
+            val semOccs = occurrences.filter { it.subjectId in semSubIds && (it.status == OccurrenceStatus.PRESENT || it.status == OccurrenceStatus.ABSENT) }
+            val attended = semOccs.filter { it.status == OccurrenceStatus.PRESENT }.sumOf { it.classCount }
+            val total = semOccs.sumOf { it.classCount }
+            val pct = if (total == 0) 0f else attended * 100f / total
+            SemesterAttendanceStat(
+                semester = sem,
+                attended = attended,
+                total = total,
+                percentage = pct
+            )
+        }
+
         HomeState(
+            activeSemester = activeSemester,
+            allSemestersStats = allSemestersStats,
             overallAttended = summaries.sumOf { it.attended },
             overallTotal = summaries.sumOf { it.total },
             projectedTotal = summaries.sumOf { it.stats.totalOverall ?: 0 },
-            requiredPercentageDefault = settings.requiredPercentageDefault,
+            requiredPercentageDefault = targetPercentage,
             subjects = summaries,
             heatmap = heatmap,
             attendanceTrend = attendanceTrend,
@@ -230,13 +301,16 @@ class HomeViewModel @Inject constructor(
             semesterFallbackNotice = period.notice,
             semesterOccurred = periodAttendance.occurred,
             semesterTotalClasses = if (
-                settings.trackingEndDate != null || subjects.any { it.trackingEndDateOverride != null }
+                (activeSemester != null) || settings.trackingEndDate != null || semesterSubjects.any { it.trackingEndDateOverride != null }
             ) summaries.sumOf { it.stats.totalOverall ?: 0 }.takeIf { it > 0 } else null,
             semesterPresent = periodAttendance.present,
             semesterAbsent = periodAttendance.absent,
             semesterUnmarked = periodAttendance.unmarked,
             pastUnmarkedClasses = periodAttendance.pastUnmarkedClasses,
-            todaySchedule = todaySchedule
+            todaySchedule = todaySchedule,
+            currentStreak = streakStats.currentStreak,
+            bestStreak = streakStats.bestStreak,
+            markedOccurrences = markedOccurrences
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeState())
 }

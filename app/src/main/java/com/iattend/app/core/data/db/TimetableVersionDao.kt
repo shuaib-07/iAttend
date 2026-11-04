@@ -27,6 +27,15 @@ interface TimetableVersionDao {
     @Query("SELECT * FROM timetable_versions ORDER BY effectiveFrom")
     suspend fun getAllOnce(): List<TimetableVersion>
 
+    @Query("SELECT * FROM timetable_versions WHERE semesterId = :semesterId ORDER BY effectiveFrom")
+    fun getForSemester(semesterId: Long): Flow<List<TimetableVersion>>
+
+    @Query("SELECT * FROM timetable_versions WHERE semesterId = :semesterId ORDER BY effectiveFrom")
+    suspend fun getForSemesterOnce(semesterId: Long): List<TimetableVersion>
+
     @Query("SELECT * FROM timetable_versions WHERE id = :id")
     suspend fun getById(id: Long): TimetableVersion?
+
+    @Query("DELETE FROM timetable_versions WHERE semesterId = :semesterId")
+    suspend fun deleteForSemester(semesterId: Long)
 }

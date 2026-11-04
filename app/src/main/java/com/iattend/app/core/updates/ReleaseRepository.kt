@@ -111,23 +111,23 @@ class ReleaseRepository @Inject constructor(
         return listOf(
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Assessments and Exams",
-                description = "Schedule tests linked to classes or independent exams, set weightage, record attempts and marks, and track weighted results separately from attendance."
+                title = "Multi-Semester Management",
+                description = "Track different semesters with their own term dates, subjects, timetables, and target attendance goals. Switch between semesters anytime or review previous semester performance."
+            ),
+            FeatureHighlight(
+                category = "NEW FEATURE",
+                title = "Side-by-Side Streaks & Info",
+                description = "Track Best and Current attendance streaks side by side in both Insights and Subject Detail screens. Tap either card to view an explanation of how it is calculated."
             ),
             FeatureHighlight(
                 category = "IMPROVEMENT",
-                title = "A More Useful Calendar",
-                description = "See tests and exams alongside classes, browse subject schedules, manage holidays with a calendar, and review scheduled extra classes in history."
+                title = "Interactive Insights & Heatmap",
+                description = "Explore attendance with an interactive commit-grid activity heatmap and tappable day-by-day weekly trend statistics."
             ),
             FeatureHighlight(
                 category = "IMPROVEMENT",
-                title = "Refined Navigation and Appearance",
-                description = "Choose the new Rectangle Expandable navigation style, with improved theme-aware colors and clearer contrast across the app."
-            ),
-            FeatureHighlight(
-                category = "IMPROVEMENT",
-                title = "Polished App Experience",
-                description = "Forms, empty states, settings, and calendar scrolling have been refined for clearer, more consistent use."
+                title = "Animated Subject Calendar & UI Polish",
+                description = "Enjoy smooth animated date transitions in Subject Detail calendars, refined navigation bar and FAB styling, onboarding semester setup, and holiday occurrence bug fixes."
             )
         )
     }

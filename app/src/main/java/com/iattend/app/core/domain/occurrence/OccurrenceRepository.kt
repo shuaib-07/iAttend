@@ -1,5 +1,7 @@
 package com.iattend.app.core.domain.occurrence
 
+import androidx.room.withTransaction
+import com.iattend.app.core.data.db.AppDatabase
 import com.iattend.app.core.data.db.Assessment
 import com.iattend.app.core.data.db.AssessmentAttemptStatus
 import com.iattend.app.core.data.db.AssessmentDao
@@ -11,6 +13,7 @@ import com.iattend.app.core.data.db.HolidayDao
 import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.RecurringHolidayRuleDao
+import com.iattend.app.core.data.db.SemesterDao
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.TimetableSlotDao
 import com.iattend.app.core.data.db.TimetableVersionDao
@@ -38,6 +41,7 @@ private const val ROLLING_WINDOW_DAYS = 90L
  */
 @Singleton
 class OccurrenceRepository @Inject constructor(
+    private val db: AppDatabase,
     private val timetableVersionDao: TimetableVersionDao,
     private val timetableSlotDao: TimetableSlotDao,
     private val classOccurrenceDao: ClassOccurrenceDao,
@@ -48,21 +52,130 @@ class OccurrenceRepository @Inject constructor(
     private val reminderScheduler: ClassReminderScheduler,
     private val deletedClassExceptionDao: DeletedClassExceptionDao,
     private val assessmentDao: AssessmentDao,
-    private val assessmentReminderScheduler: AssessmentReminderScheduler
+    private val assessmentReminderScheduler: AssessmentReminderScheduler,
+    private val semesterDao: SemesterDao
 ) {
     /**
      * Regenerates the unmarked window and returns the freshly-inserted occurrences (still
      * UNMARKED) so callers can drive the backdated-fill prompt when relevant.
      */
-    suspend fun regenerateUnmarkedWindow(today: LocalDate = LocalDate.now()) {
+    suspend fun regenerateUnmarkedWindow(today: LocalDate = LocalDate.now(), targetSemesterId: Long? = null) {
+        val semesters = if (targetSemesterId != null) {
+            listOfNotNull(semesterDao.getByIdOnce(targetSemesterId))
+        } else {
+            semesterDao.getAllOnce()
+        }
+
+        if (semesters.isNotEmpty()) {
+            for (sem in semesters) {
+                regenerateForSemester(sem.id, today)
+            }
+            reminderScheduler.scheduleTodayReminders()
+            return
+        }
+
+        // Fallback for legacy database before any semester exists
+        regenerateLegacy(today)
+    }
+
+    private suspend fun regenerateForSemester(semesterId: Long, today: LocalDate) {
+        val semester = semesterDao.getByIdOnce(semesterId) ?: return
+        val versions = timetableVersionDao.getForSemesterOnce(semesterId)
+        val subjects = subjectDao.getForSemesterOnce(semesterId)
+        if (versions.isEmpty() || subjects.isEmpty()) return
+
+        val start = (listOf(semester.startDate) + versions.map { it.effectiveFrom }).minOrNull() ?: semester.startDate
+        val subjectOverrides = subjects.mapNotNull { it.trackingEndDateOverride }
+        val horizon = (listOf(semester.endDate) + subjectOverrides).maxOrNull() ?: semester.endDate
+        if (horizon.isBefore(start)) return
+
+        val slotsByVersion = versions.associate { it.id to timetableSlotDao.getForVersionOnce(it.id) }
+        val holidays = holidayDao.getForSemesterOnce(semesterId)
+        val rules = recurringHolidayRuleDao.getForSemesterOnce(semesterId)
+        val deletedExceptions = deletedClassExceptionDao.getAllOnce()
+        val deletedKeys = deletedExceptions.map { Triple(it.date, it.subjectId, it.startTime) }.toSet()
+
+        val subjectIds = subjects.map { it.id }.toSet()
+        val existing = classOccurrenceDao.getInRangeOnce(start, horizon).filter { it.subjectId in subjectIds }
+
+        // If a date is a holiday, any SCHEDULED occurrence on that date must be purged
+        val scheduledOnHolidays = existing.filter {
+            it.source == OccurrenceSource.SCHEDULED && OccurrenceGenerator.isHoliday(it.date, holidays, rules)
+        }
+        val deletedHolidayIds = scheduledOnHolidays.map { it.id }.toSet()
+
+        // Also purge any unmarked occurrences that match deletedClassExceptions
+        val scheduledOnDeletedExceptions = existing.filter {
+            it.id !in deletedHolidayIds &&
+                it.source == OccurrenceSource.SCHEDULED &&
+                Triple(it.date, it.subjectId, it.startTime) in deletedKeys
+        }
+        val purgedDeletedIds = scheduledOnDeletedExceptions.map { it.id }.toSet()
+
+        val linkedOccurrenceIds = assessmentDao.getLinkedOccurrenceIds().toSet()
+
+        val markedOrProtectedKeys = existing
+            .filterNot { it.id in deletedHolidayIds || it.id in purgedDeletedIds }
+            .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds) && it.source == OccurrenceSource.SCHEDULED }
+            .map { Triple(it.date, it.subjectId, it.startTime) }
+            .toSet()
+
+        val generated = OccurrenceGenerator.generateOccurrences(
+            dateRange = start..horizon,
+            versions = versions,
+            slotsByVersion = slotsByVersion,
+            holidays = holidays,
+            recurringRules = rules,
+            subjectsById = subjects.associateBy { it.id }
+        ).filterNot {
+            Triple(it.date, it.subjectId, it.startTime) in markedOrProtectedKeys ||
+                Triple(it.date, it.subjectId, it.startTime) in deletedKeys
+        }
+
+        val cancelledTestIds = mutableListOf<Long>()
+
+        db.withTransaction {
+            for (occ in scheduledOnHolidays) {
+                val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
+                if (linkedTests.isNotEmpty()) {
+                    assessmentDao.updateAll(linkedTests.map {
+                        it.copy(needsRescheduling = true, linkedOccurrenceId = null)
+                    })
+                    cancelledTestIds.addAll(linkedTests.map { it.id })
+                }
+                classOccurrenceDao.delete(occ)
+            }
+
+            for (occ in scheduledOnDeletedExceptions) {
+                val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
+                if (linkedTests.isNotEmpty()) {
+                    assessmentDao.updateAll(linkedTests.map {
+                        it.copy(needsRescheduling = true, linkedOccurrenceId = null)
+                    })
+                    cancelledTestIds.addAll(linkedTests.map { it.id })
+                }
+                classOccurrenceDao.delete(occ)
+            }
+
+            classOccurrenceDao.deleteUnmarkedScheduledForSubjectsExcluding(
+                from = start,
+                to = horizon,
+                subjectIds = subjectIds.toList(),
+                excludedIds = if (linkedOccurrenceIds.isEmpty()) listOf(-1L) else linkedOccurrenceIds.toList()
+            )
+
+            classOccurrenceDao.insertAll(generated)
+        }
+
+        for (testId in cancelledTestIds) {
+            assessmentReminderScheduler.cancel(testId)
+        }
+    }
+
+    private suspend fun regenerateLegacy(today: LocalDate) {
         val settings = settingsRepository.settings.first()
         val versions = timetableVersionDao.getAllOnce()
-        // trackingStartDate is a one-time snapshot from onboarding (there's no Settings UI to
-        // update it) - if a timetable's effective date is later edited to start earlier than
-        // that snapshot, tracking must extend back to cover it, not stay pinned to the stale date.
         val start = (listOfNotNull(settings.trackingStartDate) + versions.map { it.effectiveFrom }).minOrNull() ?: return
-        // Horizon must cover the latest of: the global default, or any subject's own end-date
-        // override (Computed mode) - otherwise that subject's total would be under-counted.
         val subjectOverrides = subjectDao.getAllOnce().mapNotNull { it.trackingEndDateOverride }
         val horizon = (listOfNotNull(settings.trackingEndDate) + subjectOverrides).maxOrNull()
             ?: today.plusDays(ROLLING_WINDOW_DAYS)
@@ -76,42 +189,15 @@ class OccurrenceRepository @Inject constructor(
 
         val existing = classOccurrenceDao.getInRangeOnce(start, horizon)
 
-        // If a date is a holiday, any SCHEDULED occurrence on that date (even if previously marked
-        // Absent/Present/Cancelled before the holiday was declared) must be purged.
         val scheduledOnHolidays = existing.filter {
             it.source == OccurrenceSource.SCHEDULED && OccurrenceGenerator.isHoliday(it.date, holidays, rules)
         }
-        for (occ in scheduledOnHolidays) {
-            val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
-            if (linkedTests.isNotEmpty()) {
-                assessmentDao.updateAll(linkedTests.map {
-                    it.copy(needsRescheduling = true, linkedOccurrenceId = null)
-                })
-                for (test in linkedTests) {
-                    assessmentReminderScheduler.cancel(test.id)
-                }
-            }
-            classOccurrenceDao.delete(occ)
-        }
         val deletedHolidayIds = scheduledOnHolidays.map { it.id }.toSet()
 
-        // Also purge any unmarked occurrences that match deletedClassExceptions
         val scheduledOnDeletedExceptions = existing.filter {
             it.id !in deletedHolidayIds &&
                 it.source == OccurrenceSource.SCHEDULED &&
                 Triple(it.date, it.subjectId, it.startTime) in deletedKeys
-        }
-        for (occ in scheduledOnDeletedExceptions) {
-            val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
-            if (linkedTests.isNotEmpty()) {
-                assessmentDao.updateAll(linkedTests.map {
-                    it.copy(needsRescheduling = true, linkedOccurrenceId = null)
-                })
-                for (test in linkedTests) {
-                    assessmentReminderScheduler.cancel(test.id)
-                }
-            }
-            classOccurrenceDao.delete(occ)
         }
         val purgedDeletedIds = scheduledOnDeletedExceptions.map { it.id }.toSet()
 
@@ -122,12 +208,6 @@ class OccurrenceRepository @Inject constructor(
             .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds) && it.source == OccurrenceSource.SCHEDULED }
             .map { Triple(it.date, it.subjectId, it.startTime) }
             .toSet()
-
-        if (linkedOccurrenceIds.isEmpty()) {
-            classOccurrenceDao.deleteUnmarkedScheduledInRange(start, horizon)
-        } else {
-            classOccurrenceDao.deleteUnmarkedScheduledInRangeExcluding(start, horizon, linkedOccurrenceIds.toList())
-        }
 
         val generated = OccurrenceGenerator.generateOccurrences(
             dateRange = start..horizon,
@@ -141,7 +221,43 @@ class OccurrenceRepository @Inject constructor(
                 Triple(it.date, it.subjectId, it.startTime) in deletedKeys
         }
 
-        classOccurrenceDao.insertAll(generated)
+        val cancelledTestIds = mutableListOf<Long>()
+
+        db.withTransaction {
+            for (occ in scheduledOnHolidays) {
+                val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
+                if (linkedTests.isNotEmpty()) {
+                    assessmentDao.updateAll(linkedTests.map {
+                        it.copy(needsRescheduling = true, linkedOccurrenceId = null)
+                    })
+                    cancelledTestIds.addAll(linkedTests.map { it.id })
+                }
+                classOccurrenceDao.delete(occ)
+            }
+
+            for (occ in scheduledOnDeletedExceptions) {
+                val linkedTests = assessmentDao.getForOccurrenceOnce(occ.id)
+                if (linkedTests.isNotEmpty()) {
+                    assessmentDao.updateAll(linkedTests.map {
+                        it.copy(needsRescheduling = true, linkedOccurrenceId = null)
+                    })
+                    cancelledTestIds.addAll(linkedTests.map { it.id })
+                }
+                classOccurrenceDao.delete(occ)
+            }
+
+            if (linkedOccurrenceIds.isEmpty()) {
+                classOccurrenceDao.deleteUnmarkedScheduledInRange(start, horizon)
+            } else {
+                classOccurrenceDao.deleteUnmarkedScheduledInRangeExcluding(start, horizon, linkedOccurrenceIds.toList())
+            }
+
+            classOccurrenceDao.insertAll(generated)
+        }
+
+        for (testId in cancelledTestIds) {
+            assessmentReminderScheduler.cancel(testId)
+        }
         reminderScheduler.scheduleTodayReminders()
     }
 

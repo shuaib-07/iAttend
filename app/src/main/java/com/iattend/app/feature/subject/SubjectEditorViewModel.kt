@@ -8,6 +8,7 @@ import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.TotalMode
 import com.iattend.app.core.data.db.WeightageSystem
+import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import com.iattend.app.core.navigation.SubjectEditorRoute
 import com.iattend.app.core.ui.nextSubjectColor
@@ -44,6 +45,7 @@ data class SubjectEditorState(
 class SubjectEditorViewModel @Inject constructor(
     private val subjectDao: SubjectDao,
     private val occurrenceRepository: OccurrenceRepository,
+    private val settingsRepository: SettingsRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<SubjectEditorRoute>()
@@ -103,8 +105,14 @@ class SubjectEditorViewModel @Inject constructor(
     fun save() {
         viewModelScope.launch {
             val s = _state.value
+            val semesterId = if (isNew) {
+                settingsRepository.settings.first().activeSemesterId ?: 1L
+            } else {
+                subjectDao.getByIdOnce(s.subjectId)?.semesterId ?: 1L
+            }
             val subject = Subject(
                 id = s.subjectId,
+                semesterId = semesterId,
                 code = s.code.trim(),
                 name = s.name.trim(),
                 colorArgb = s.colorArgb,
@@ -119,7 +127,7 @@ class SubjectEditorViewModel @Inject constructor(
                 totalWeightedMarks = if (s.gradingSystem == WeightageSystem.WEIGHTED_MARKS) s.totalWeightedMarks.toDoubleOrNull() else null
             )
             val savedId = if (isNew) subjectDao.insert(subject) else { subjectDao.update(subject); subject.id }
-            occurrenceRepository.regenerateUnmarkedWindow()
+            occurrenceRepository.regenerateUnmarkedWindow(targetSemesterId = semesterId)
             _state.value = _state.value.copy(saved = true, subjectId = savedId)
         }
     }

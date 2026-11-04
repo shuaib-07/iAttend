@@ -2,6 +2,18 @@
 .gradle/
 build/
 ignore/
+.agent
+.gemini
+.codex
+.agents
+.claude
+.agent
+.impeccable
+.grade
+.idea
+.kotlin
+.opencode
+.idea
 
 # Local configuration file (sdk path, etc)
 local.properties

@@ -26,6 +26,12 @@ import androidx.compose.material3.MaterialTheme
 import com.iattend.app.core.data.db.AssessmentAttemptStatus
 import com.iattend.app.core.data.db.AssessmentType
 import com.iattend.app.core.data.db.OccurrenceStatus
+import com.iattend.app.core.data.db.Semester
+import com.iattend.app.feature.semester.ArchivedSemesterBanner
+import com.iattend.app.feature.semester.SemesterEditorDialog
+import com.iattend.app.feature.semester.SemesterSelectorChip
+import com.iattend.app.feature.semester.SemesterSwitcherBottomSheet
+import com.iattend.app.feature.semester.SemesterViewModel
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -57,9 +63,15 @@ import java.time.LocalDate
 fun HomeScreen(
     onSubjectClick: (Long) -> Unit,
     onOpenCalendar: (LocalDate) -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    semesterViewModel: SemesterViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val semesterState by semesterViewModel.uiState.collectAsState()
+    var showSemesterSheet by remember { mutableStateOf(false) }
+    var editingSemester by remember { mutableStateOf<Semester?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+
     val tutorialSubjectId = LocalTutorialController.current?.tutorialSubjectId
     var showUnmarkedClasses by remember { mutableStateOf(false) }
 
@@ -78,6 +90,31 @@ fun HomeScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
         item {
+            if (semesterState.isViewingArchived && semesterState.activeSemester != null) {
+                ArchivedSemesterBanner(
+                    semesterName = semesterState.activeSemester!!.name,
+                    onSwitchToCurrent = {
+                        val current = semesterState.semesters.firstOrNull { !it.isArchived && !it.endDate.isBefore(LocalDate.now()) }
+                            ?: semesterState.semesters.firstOrNull()
+                        if (current != null) semesterViewModel.switchSemester(current.id)
+                    },
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SemesterSelectorChip(
+                    semester = semesterState.activeSemester,
+                    onClick = { showSemesterSheet = true }
+                )
+            }
+
             GreetingRow(
                 collapseFraction = collapseFraction,
                 attendancePercentage = state.overallMarkedPercentage,
@@ -213,6 +250,48 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (showSemesterSheet) {
+        SemesterSwitcherBottomSheet(
+            activeSemester = semesterState.activeSemester,
+            semesters = semesterState.semesters,
+            onSelectSemester = { id -> semesterViewModel.switchSemester(id) },
+            onAddNew = {
+                showSemesterSheet = false
+                showCreateDialog = true
+            },
+            onEdit = { sem ->
+                showSemesterSheet = false
+                editingSemester = sem
+            },
+            onToggleArchive = { sem -> semesterViewModel.toggleArchive(sem) },
+            onDelete = { id -> semesterViewModel.deleteSemester(id) },
+            onDismiss = { showSemesterSheet = false }
+        )
+    }
+
+    if (showCreateDialog) {
+        SemesterEditorDialog(
+            existingSemesters = semesterState.semesters,
+            onSave = { name, start, end, targetPct, copyRules, copyHolidays ->
+                semesterViewModel.createSemester(name, start, end, targetPct, copyRules, copyHolidays)
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false }
+        )
+    }
+
+    editingSemester?.let { sem ->
+        SemesterEditorDialog(
+            initialSemester = sem,
+            existingSemesters = semesterState.semesters,
+            onSave = { name, start, end, targetPct, _, _ ->
+                semesterViewModel.updateSemester(sem.copy(name = name, startDate = start, endDate = end, targetPercentage = targetPct))
+                editingSemester = null
+            },
+            onDismiss = { editingSemester = null }
+        )
     }
 }
 

@@ -26,4 +26,13 @@ interface HolidayDao {
 
     @Query("SELECT * FROM holidays ORDER BY startDate")
     suspend fun getAllOnce(): List<Holiday>
+
+    @Query("SELECT * FROM holidays WHERE semesterId = :semesterId ORDER BY startDate")
+    fun getForSemester(semesterId: Long): Flow<List<Holiday>>
+
+    @Query("SELECT * FROM holidays WHERE semesterId = :semesterId ORDER BY startDate")
+    suspend fun getForSemesterOnce(semesterId: Long): List<Holiday>
+
+    @Query("DELETE FROM holidays WHERE semesterId = :semesterId")
+    suspend fun deleteForSemester(semesterId: Long)
 }

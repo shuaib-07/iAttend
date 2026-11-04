@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iattend.app.core.data.db.TimetableVersion
 import com.iattend.app.core.data.db.TimetableVersionDao
+import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,15 +17,25 @@ import javax.inject.Inject
 @HiltViewModel
 class TimetableVersionListViewModel @Inject constructor(
     private val timetableVersionDao: TimetableVersionDao,
-    private val occurrenceRepository: OccurrenceRepository
+    private val occurrenceRepository: OccurrenceRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
-    val versions: StateFlow<List<TimetableVersion>> = timetableVersionDao.getAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val versions: StateFlow<List<TimetableVersion>> = combine(
+        timetableVersionDao.getAll(),
+        settingsRepository.settings
+    ) { all, settings ->
+        val activeSemId = settings.activeSemesterId
+        if (activeSemId != null) {
+            all.filter { it.semesterId == activeSemId }
+        } else {
+            all
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun delete(version: TimetableVersion) {
         viewModelScope.launch {
             timetableVersionDao.delete(version)
-            occurrenceRepository.regenerateUnmarkedWindow()
+            occurrenceRepository.regenerateUnmarkedWindow(targetSemesterId = version.semesterId)
         }
     }
 }

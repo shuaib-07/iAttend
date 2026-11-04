@@ -7,8 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.iattend.app.core.data.db.RecurringHolidayMode
 import com.iattend.app.core.data.db.RecurringHolidayRule
 import com.iattend.app.core.data.db.RecurringHolidayRuleDao
-import com.iattend.app.core.data.export.ExportImportRepository
+import com.iattend.app.core.data.db.Semester
+import com.iattend.app.core.data.db.SemesterDao
 import com.iattend.app.core.data.db.TimetableVersionDao
+import com.iattend.app.core.data.export.ExportImportRepository
 import com.iattend.app.core.datastore.ProfileRepository
 import com.iattend.app.core.datastore.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.DayOfWeek
+import java.time.LocalDate
 import javax.inject.Inject
 
 data class OnboardingState(
@@ -29,6 +32,10 @@ data class OnboardingState(
     val step: Int = 0,
     val name: String = "",
     val avatarUri: String? = null,
+    val semesterName: String = "Semester 1",
+    val semesterStartDate: LocalDate = LocalDate.now(),
+    val semesterEndDate: LocalDate = LocalDate.now().plusMonths(4),
+    val semesterTargetPercentage: Float = 75f,
     val showTemplateNamePrompt: Boolean = false,
     val templateNameInput: String = ""
 )
@@ -38,14 +45,20 @@ sealed class OnboardingFinishEvent {
     data class ToBackdatedFill(val versionId: Long) : OnboardingFinishEvent()
 }
 
-/** Features -> Notifications -> Theme -> Name/Avatar. Subjects/timetable/tracking-dates/holidays/
- * threshold moved out of the wizard - the live-screen tutorial (core/tutorial) walks the user
- * through setting those up for real on the actual screens instead of a second, throwaway pass. */
-const val ONBOARDING_STEP_COUNT = 4
+/**
+ * Onboarding steps:
+ * 0: Features
+ * 1: Notifications
+ * 2: Theme
+ * 3: Name / Avatar
+ * 4: Semester Setup
+ */
+const val ONBOARDING_STEP_COUNT = 5
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
+    private val semesterDao: SemesterDao,
     private val recurringHolidayRuleDao: RecurringHolidayRuleDao,
     private val settingsRepository: SettingsRepository,
     private val timetableVersionDao: TimetableVersionDao,
@@ -122,6 +135,11 @@ class OnboardingViewModel @Inject constructor(
 
     fun onNameChange(v: String) { _state.value = _state.value.copy(name = v) }
 
+    fun onSemesterNameChange(name: String) { _state.value = _state.value.copy(semesterName = name) }
+    fun onSemesterStartDateChange(date: LocalDate) { _state.value = _state.value.copy(semesterStartDate = date) }
+    fun onSemesterEndDateChange(date: LocalDate) { _state.value = _state.value.copy(semesterEndDate = date) }
+    fun onSemesterTargetPercentageChange(pct: Float) { _state.value = _state.value.copy(semesterTargetPercentage = pct) }
+
     /** Copies the picked image into app-private storage (same as ProfileViewModel.setPicture)
      * so the path stays valid, kept as a draft until [finish] persists it. */
     fun onAvatarPicked(uri: Uri) {
@@ -136,17 +154,52 @@ class OnboardingViewModel @Inject constructor(
 
     fun onAvatarUrlSelected(url: String) { _state.value = _state.value.copy(avatarUri = url) }
 
-    /** No subjects/timetable/tracking-dates/holidays/threshold to persist here anymore - the
-     * live-screen tutorial sets those up for real right after this. Recurring holiday rows still
-     * default to NONE for all 7 days so the table isn't left empty/unseeded. */
     fun finish() {
         viewModelScope.launch {
             val s = _state.value
             profileRepository.setName(s.name.trim())
             profileRepository.setPictureUri(s.avatarUri)
-            DayOfWeek.entries.forEach { day ->
-                recurringHolidayRuleDao.upsert(RecurringHolidayRule(day, RecurringHolidayMode.NONE))
+
+            val semName = s.semesterName.trim().ifBlank { "Semester 1" }
+            val existingSemesters = semesterDao.getAllOnce()
+            val semesterId = if (existingSemesters.isNotEmpty()) {
+                val existing = existingSemesters.first()
+                semesterDao.update(
+                    existing.copy(
+                        name = semName,
+                        startDate = s.semesterStartDate,
+                        endDate = s.semesterEndDate,
+                        targetPercentage = s.semesterTargetPercentage
+                    )
+                )
+                existing.id
+            } else {
+                semesterDao.insert(
+                    Semester(
+                        name = semName,
+                        startDate = s.semesterStartDate,
+                        endDate = s.semesterEndDate,
+                        targetPercentage = s.semesterTargetPercentage,
+                        isArchived = false,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
             }
+
+            DayOfWeek.entries.forEach { day ->
+                recurringHolidayRuleDao.upsert(
+                    RecurringHolidayRule(
+                        dayOfWeek = day,
+                        mode = RecurringHolidayMode.NONE,
+                        semesterId = semesterId
+                    )
+                )
+            }
+
+            settingsRepository.setActiveSemesterId(semesterId)
+            settingsRepository.setTrackingStartDate(s.semesterStartDate)
+            settingsRepository.setTrackingEndDate(s.semesterEndDate)
+            settingsRepository.setRequiredPercentageDefault(s.semesterTargetPercentage.coerceIn(0f, 100f))
             settingsRepository.setOnboardingComplete(true)
             _finishEvents.send(OnboardingFinishEvent.ToHome)
         }

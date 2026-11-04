@@ -37,6 +37,18 @@ interface AssessmentDao {
     @Query("SELECT * FROM assessments ORDER BY date, startTime")
     suspend fun getAllOnce(): List<Assessment>
 
+    @Query("SELECT a.* FROM assessments a INNER JOIN subjects s ON a.subjectId = s.id WHERE s.semesterId = :semesterId ORDER BY a.date, a.startTime")
+    fun getForSemester(semesterId: Long): Flow<List<Assessment>>
+
+    @Query("SELECT a.* FROM assessments a INNER JOIN subjects s ON a.subjectId = s.id WHERE s.semesterId = :semesterId ORDER BY a.date, a.startTime")
+    suspend fun getForSemesterOnce(semesterId: Long): List<Assessment>
+
+    @Query("SELECT a.* FROM assessments a INNER JOIN subjects s ON a.subjectId = s.id WHERE s.semesterId = :semesterId AND a.date = :date ORDER BY a.startTime")
+    fun getForDateAndSemester(date: LocalDate, semesterId: Long): Flow<List<Assessment>>
+
+    @Query("SELECT a.* FROM assessments a INNER JOIN subjects s ON a.subjectId = s.id WHERE s.semesterId = :semesterId AND a.date = :date ORDER BY a.startTime")
+    suspend fun getForDateAndSemesterOnce(date: LocalDate, semesterId: Long): List<Assessment>
+
     @Update
     suspend fun updateAll(assessments: List<Assessment>)
 

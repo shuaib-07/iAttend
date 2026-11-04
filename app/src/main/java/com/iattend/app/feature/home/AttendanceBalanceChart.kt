@@ -1,17 +1,25 @@
 package com.iattend.app.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -20,15 +28,32 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
- * Cashiro BalanceChart.kt adapted: plots weekly attendance % (0-100) as a smoothed line.
- * Original used BigDecimal balances; here Float percent. Keeps animation, grid, gradient fill.
+ * Plots weekly attendance % (0-100) as an interactive smoothed line chart with tap-able tooltip info.
  */
 @Composable
 fun AttendanceBalanceChart(
@@ -64,14 +89,86 @@ fun AttendanceBalanceChart(
     val paddedMax = (maxP + range * 0.1f).coerceIn(0f, 100f)
     val paddedRange = (paddedMax - paddedMin).let { if (it == 0f) 1f else it }
 
-    Surface(modifier = modifier.fillMaxWidth().height(height.dp), color = backgroundColor, shape = RoundedCornerShape(12.dp)) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    var lastSelectedPoint by remember { mutableStateOf<WeeklyAttendancePoint?>(null) }
+    var chartWidth by remember { mutableFloatStateOf(0f) }
+    var chartHeight by remember { mutableFloatStateOf(0f) }
+
+    // Instant dismissal counter: bumps on scroll or screen departure to reset popup without lag
+    var instantDismissals by remember { mutableIntStateOf(0) }
+    val dismissNow = {
+        if (selectedIndex != null) {
+            instantDismissals++
+            selectedIndex = null
+        }
+    }
+
+    // Dismiss when screen moves (scroll)
+    val lastCardY = remember { floatArrayOf(Float.NaN) }
+
+    // Dismiss when screen leaves foreground
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                dismissNow()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Auto-dismiss tooltip after 3 seconds of inactivity
+    LaunchedEffect(selectedIndex) {
+        if (selectedIndex != null) {
+            delay(3_000)
+            selectedIndex = null
+        }
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height.dp)
+            .onGloballyPositioned { coordinates ->
+                val y = coordinates.positionInWindow().y
+                if (!lastCardY[0].isNaN() && y != lastCardY[0]) dismissNow()
+                lastCardY[0] = y
+            },
+        color = backgroundColor,
+        shape = RoundedCornerShape(12.dp)
+    ) {
         Column {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = "${paddedMax.toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(text = "Weekly Attendance", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
             }
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).weight(1f)) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(smoothed) {
+                            detectTapGestures { tapOffset ->
+                                if (smoothed.isEmpty() || size.width == 0) return@detectTapGestures
+                                val w = size.width.toFloat()
+                                val closestIdx = if (smoothed.size < 2) {
+                                    0
+                                } else {
+                                    ((tapOffset.x / w) * (smoothed.size - 1)).roundToInt().coerceIn(0, smoothed.size - 1)
+                                }
+                                if (selectedIndex == closestIdx) {
+                                    selectedIndex = null
+                                } else {
+                                    selectedIndex = closestIdx
+                                    lastSelectedPoint = smoothed[closestIdx]
+                                }
+                            }
+                        }
+                ) {
+                    chartWidth = size.width
+                    chartHeight = size.height
                     val w = size.width
                     val h = size.height
                     // grid
@@ -109,6 +206,53 @@ fun AttendanceBalanceChart(
                             }
                         }
                     }
+
+                    // Draw vertical guide line and indicator for selected point
+                    if (selectedIndex != null && selectedIndex in smoothed.indices) {
+                        val selIdx = selectedIndex!!
+                        val selX = if (smoothed.size < 2) w / 2f else w * (selIdx.toFloat() / (smoothed.size - 1))
+                        val selY = h * (1f - ((smoothed[selIdx].percent - paddedMin) / paddedRange))
+
+                        drawLine(
+                            color = lineColor.copy(alpha = 0.35f),
+                            start = Offset(selX, 0f),
+                            end = Offset(selX, h),
+                            strokeWidth = 1.5.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                        )
+
+                        // Highlighted halo and circle
+                        drawCircle(lineColor.copy(alpha = 0.25f), radius = 10.dp.toPx(), center = Offset(selX, selY))
+                        drawCircle(lineColor, radius = 5.dp.toPx(), center = Offset(selX, selY))
+                        drawCircle(backgroundColor, radius = 2.5.dp.toPx(), center = Offset(selX, selY))
+                    }
+                }
+
+                // Tooltip popup anchored above selected point
+                if (chartWidth > 0f) {
+                    val currentPoint = if (selectedIndex != null && selectedIndex in smoothed.indices) {
+                        smoothed[selectedIndex!!]
+                    } else {
+                        lastSelectedPoint
+                    }
+
+                    val selIdx = selectedIndex ?: smoothed.indexOf(currentPoint).takeIf { it != -1 } ?: 0
+                    val selX = if (smoothed.size < 2) chartWidth / 2f else chartWidth * (selIdx.toFloat() / (smoothed.size - 1).coerceAtLeast(1))
+                    val selY = if (currentPoint != null) {
+                        chartHeight * (1f - ((currentPoint.percent - paddedMin) / paddedRange))
+                    } else 0f
+
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(selX.roundToInt(), selY.roundToInt()) }
+                            .size(0.dp)
+                    ) {
+                        WeeklyTrendTooltip(
+                            point = currentPoint,
+                            visible = selectedIndex != null,
+                            instantDismissals = instantDismissals
+                        )
+                    }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -118,6 +262,95 @@ fun AttendanceBalanceChart(
             }
             Text(text = "${paddedMin.toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp, bottom = 6.dp))
         }
+    }
+}
+
+@Composable
+private fun WeeklyTrendTooltip(
+    point: WeeklyAttendancePoint?,
+    visible: Boolean,
+    instantDismissals: Int = 0
+) {
+    if (point == null) return
+    val gap = with(LocalDensity.current) { 8.dp.roundToPx() }
+    val positionProvider = remember(gap) { ChartAboveAnchorPositionProvider(gap) }
+    val visibility = remember(instantDismissals) { MutableTransitionState(false) }
+    visibility.targetState = visible
+
+    if (!visibility.currentState && !visibility.targetState) return
+
+    Popup(popupPositionProvider = positionProvider) {
+        AnimatedVisibility(
+            visibleState = visibility,
+            enter = fadeIn(tween(160)) +
+                scaleIn(tween(200, easing = FastOutSlowInEasing), initialScale = 0.85f, transformOrigin = TransformOrigin(0.5f, 1f)) +
+                slideInVertically(tween(200, easing = FastOutSlowInEasing)) { it / 6 },
+            exit = fadeOut(tween(120)) +
+                scaleOut(tween(150), targetScale = 0.9f, transformOrigin = TransformOrigin(0.5f, 1f)) +
+                slideOutVertically(tween(150)) { it / 8 }
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shadowElevation = 6.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = formatWeekRange(point.weekStart),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        text = formatPercent(point.percent),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatWeekRange(weekStart: LocalDate): String {
+    val weekEnd = weekStart.plusDays(6)
+    val startFmt = DateTimeFormatter.ofPattern("MMM d")
+    val endFmt = if (weekStart.monthValue == weekEnd.monthValue) {
+        DateTimeFormatter.ofPattern("d")
+    } else {
+        DateTimeFormatter.ofPattern("MMM d")
+    }
+    val yearStr = if (weekStart.year != LocalDate.now().year) ", ${weekStart.year}" else ""
+    return "${weekStart.format(startFmt)} – ${weekEnd.format(endFmt)}$yearStr"
+}
+
+private fun formatPercent(percent: Float): String {
+    val formatted = if (percent % 1f == 0f) {
+        "${percent.toInt()}%"
+    } else {
+        String.format(Locale.getDefault(), "%.1f%%", percent)
+    }
+    return "$formatted Attendance"
+}
+
+private class ChartAboveAnchorPositionProvider(
+    private val gap: Int
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val x = (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
+
+        val above = anchorBounds.top - popupContentSize.height - gap
+        val y = if (above >= 0) above else anchorBounds.bottom + gap
+
+        return IntOffset(x, y)
     }
 }
 

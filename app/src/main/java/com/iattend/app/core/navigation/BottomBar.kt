@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -100,13 +101,14 @@ internal fun QuickAddFab(
     onClick: () -> Unit,
     lottieAsset: String = "lottie/plus_to_x.json",
     selected: Boolean = false,
-    contentDescription: String = "Quick add"
+    contentDescription: String = "Quick add",
+    shape: Shape = MaterialTheme.shapes.large
 ) {
     FloatingActionButton(
         onClick = onClick,
         containerColor = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
         elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
     ) {
         LottieMorphIcon(
@@ -120,9 +122,12 @@ internal fun QuickAddFab(
 
 /** Shared bloom menu, preserving the pill toolbar's FAB appearance. */
 @Composable
-internal fun ManageMenuFab(navController: NavHostController) {
+internal fun ManageMenuFab(
+    navController: NavHostController,
+    shape: Shape = MaterialTheme.shapes.large
+) {
     BloomManageMenu(navController) { onClick, expanded ->
-        QuickAddFab(onClick = onClick, selected = expanded, contentDescription = "Manage")
+        QuickAddFab(onClick = onClick, selected = expanded, contentDescription = "Manage", shape = shape)
     }
 }
 

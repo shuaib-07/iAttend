@@ -28,9 +28,18 @@ interface SubjectDao {
     @Query("SELECT * FROM subjects ORDER BY name")
     suspend fun getAllOnce(): List<Subject>
 
+    @Query("SELECT * FROM subjects WHERE semesterId = :semesterId ORDER BY name")
+    fun getForSemester(semesterId: Long): Flow<List<Subject>>
+
+    @Query("SELECT * FROM subjects WHERE semesterId = :semesterId ORDER BY name")
+    suspend fun getForSemesterOnce(semesterId: Long): List<Subject>
+
     @Query("SELECT * FROM subjects WHERE id = :id")
     fun getById(id: Long): Flow<Subject?>
 
     @Query("SELECT * FROM subjects WHERE id = :id")
     suspend fun getByIdOnce(id: Long): Subject?
+
+    @Query("DELETE FROM subjects WHERE semesterId = :semesterId")
+    suspend fun deleteForSemester(semesterId: Long)
 }

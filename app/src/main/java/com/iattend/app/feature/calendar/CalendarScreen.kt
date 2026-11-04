@@ -90,6 +90,8 @@ import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.datastore.CalendarViewMode
+import com.iattend.app.feature.semester.ArchivedSemesterBanner
+import com.iattend.app.feature.semester.SemesterViewModel
 import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal
 import com.iattend.app.core.tutorial.tutorialTarget
@@ -121,8 +123,10 @@ fun CalendarScreen(
     onSubjectClick: (Long) -> Unit = {},
     onAssessmentClick: ((subjectId: Long, assessmentId: Long) -> Unit)? = null,
     initialDate: String? = null,
-    viewModel: CalendarViewModel = hiltViewModel()
+    viewModel: CalendarViewModel = hiltViewModel(),
+    semesterViewModel: SemesterViewModel = hiltViewModel()
 ) {
+    val semesterState by semesterViewModel.uiState.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val visibleWeek by viewModel.visibleWeek.collectAsState()
     val rows by viewModel.rows.collectAsState()
@@ -167,6 +171,18 @@ fun CalendarScreen(
     ) {
         item(key = "calendar_header") {
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
+                if (semesterState.isViewingArchived && semesterState.activeSemester != null) {
+                    ArchivedSemesterBanner(
+                        semesterName = semesterState.activeSemester!!.name,
+                        onSwitchToCurrent = {
+                            val current = semesterState.semesters.firstOrNull { !it.isArchived && !it.endDate.isBefore(LocalDate.now()) }
+                                ?: semesterState.semesters.firstOrNull()
+                            if (current != null) semesterViewModel.switchSemester(current.id)
+                        },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

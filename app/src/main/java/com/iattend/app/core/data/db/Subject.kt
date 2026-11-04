@@ -1,6 +1,7 @@
 package com.iattend.app.core.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.iattend.app.core.data.export.LocalDateSerializer
 import kotlinx.serialization.Serializable
@@ -13,9 +14,13 @@ enum class TotalMode { KNOWN, COMPUTED, OPEN_ENDED }
 enum class WeightageSystem { PERCENTAGE, WEIGHTED_MARKS }
 
 @Serializable
-@Entity(tableName = "subjects")
+@Entity(
+    tableName = "subjects",
+    indices = [Index("semesterId")]
+)
 data class Subject(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val semesterId: Long = 1,
     val code: String,
     val name: String,
     val colorArgb: Int,

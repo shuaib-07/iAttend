@@ -165,8 +165,84 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. Create semesters table
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS semesters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                name TEXT NOT NULL,
+                startDate TEXT NOT NULL,
+                endDate TEXT NOT NULL,
+                targetPercentage REAL NOT NULL DEFAULT 75.0,
+                isArchived INTEGER NOT NULL DEFAULT 0,
+                createdAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        // 2. Insert default initial semester for existing data
+        val now = System.currentTimeMillis()
+        var minDate = "2026-01-01"
+        var maxDate = "2026-12-31"
+
+        try {
+            val cursor = db.query("SELECT MIN(date), MAX(date) FROM class_occurrences")
+            if (cursor.moveToFirst()) {
+                val minVal = cursor.getString(0)
+                val maxVal = cursor.getString(1)
+                if (!minVal.isNullOrBlank()) minDate = minVal
+                if (!maxVal.isNullOrBlank()) maxDate = maxVal
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO semesters (id, name, startDate, endDate, targetPercentage, isArchived, createdAt)
+            VALUES (1, 'Semester 1', '$minDate', '$maxDate', 75.0, 0, $now)
+            """.trimIndent()
+        )
+
+        // 3. Add semesterId to subjects
+        db.execSQL("ALTER TABLE subjects ADD COLUMN semesterId INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_subjects_semesterId ON subjects(semesterId)")
+
+        // 4. Add semesterId to timetable_versions
+        db.execSQL("ALTER TABLE timetable_versions ADD COLUMN semesterId INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_timetable_versions_semesterId ON timetable_versions(semesterId)")
+
+        // 5. Add semesterId to holidays
+        db.execSQL("ALTER TABLE holidays ADD COLUMN semesterId INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_holidays_semesterId ON holidays(semesterId)")
+
+        // 6. Recreate recurring_holiday_rules with primary key (semesterId, dayOfWeek)
+        db.execSQL(
+            """
+            CREATE TABLE recurring_holiday_rules_new (
+                dayOfWeek TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                weeksOfMonth INTEGER NOT NULL,
+                semesterId INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY(semesterId, dayOfWeek)
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO recurring_holiday_rules_new (dayOfWeek, mode, weeksOfMonth, semesterId)
+            SELECT dayOfWeek, mode, weeksOfMonth, 1 FROM recurring_holiday_rules
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE recurring_holiday_rules")
+        db.execSQL("ALTER TABLE recurring_holiday_rules_new RENAME TO recurring_holiday_rules")
+    }
+}
+
 @Database(
     entities = [
+        Semester::class,
         Subject::class,
         TimetableVersion::class,
         TimetableSlot::class,
@@ -176,11 +252,12 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         Assessment::class,
         DeletedClassException::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun semesterDao(): SemesterDao
     abstract fun subjectDao(): SubjectDao
     abstract fun timetableVersionDao(): TimetableVersionDao
     abstract fun timetableSlotDao(): TimetableSlotDao

@@ -12,6 +12,8 @@ import com.iattend.app.core.data.db.Holiday
 import com.iattend.app.core.data.db.HolidayDao
 import com.iattend.app.core.data.db.RecurringHolidayRule
 import com.iattend.app.core.data.db.RecurringHolidayRuleDao
+import com.iattend.app.core.data.db.Semester
+import com.iattend.app.core.data.db.SemesterDao
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.TimetableSlot
@@ -49,7 +51,8 @@ data class ExportPayload(
     val settings: AppSettings,
     val profile: Profile,
     val assessments: List<Assessment> = emptyList(),
-    val deletedClassExceptions: List<DeletedClassException> = emptyList()
+    val deletedClassExceptions: List<DeletedClassException> = emptyList(),
+    val semesters: List<Semester> = emptyList()
 )
 
 @Serializable
@@ -87,13 +90,14 @@ class ExportImportRepository @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val occurrenceRepository: OccurrenceRepository,
     private val assessmentDao: AssessmentDao,
-    private val deletedClassExceptionDao: DeletedClassExceptionDao
+    private val deletedClassExceptionDao: DeletedClassExceptionDao,
+    private val semesterDao: SemesterDao
 ) {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
 
     suspend fun export(): String = json.encodeToString(
         ExportPayload(
-            exportVersion = 3,
+            exportVersion = 4,
             subjects = subjectDao.getAllOnce(),
             timetableVersions = timetableVersionDao.getAllOnce(),
             timetableSlots = timetableSlotDao.getAllOnce(),
@@ -103,7 +107,8 @@ class ExportImportRepository @Inject constructor(
             settings = settingsRepository.settings.first(),
             profile = profileRepository.profile.first(),
             assessments = assessmentDao.getAllOnce(),
-            deletedClassExceptions = deletedClassExceptionDao.getAllOnce()
+            deletedClassExceptions = deletedClassExceptionDao.getAllOnce(),
+            semesters = semesterDao.getAllOnce()
         )
     )
 
@@ -119,6 +124,24 @@ class ExportImportRepository @Inject constructor(
         }
         db.withTransaction {
             db.clearAllTables()
+            if (payload.semesters.isNotEmpty()) {
+                semesterDao.insertAll(payload.semesters)
+            } else {
+                val now = System.currentTimeMillis()
+                val minDate = payload.classOccurrences.map { it.date }.minOrNull() ?: payload.settings.trackingStartDate ?: java.time.LocalDate.now().minusMonths(3)
+                val maxDate = payload.classOccurrences.map { it.date }.maxOrNull() ?: payload.settings.trackingEndDate ?: java.time.LocalDate.now().plusMonths(3)
+                semesterDao.insert(
+                    Semester(
+                        id = 1,
+                        name = "Semester 1",
+                        startDate = minDate,
+                        endDate = maxDate,
+                        targetPercentage = payload.settings.requiredPercentageDefault,
+                        isArchived = false,
+                        createdAt = now
+                    )
+                )
+            }
             subjectDao.insertAll(importedSubjects)
             timetableVersionDao.insertAll(payload.timetableVersions)
             timetableSlotDao.insertAll(importedSlots)
@@ -129,6 +152,9 @@ class ExportImportRepository @Inject constructor(
             if (payload.deletedClassExceptions.isNotEmpty()) deletedClassExceptionDao.insertAll(payload.deletedClassExceptions)
         }
         settingsRepository.replaceAll(payload.settings)
+        if (payload.settings.activeSemesterId == null) {
+            settingsRepository.setActiveSemesterId(1)
+        }
         profileRepository.replaceAll(payload.profile)
     }
 

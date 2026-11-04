@@ -15,6 +15,7 @@ import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
+import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.navigation.ExtraClassesRoute
 import com.iattend.app.core.notifications.ClassReminderScheduler
 import com.iattend.app.widget.UpcomingClassesWidget
@@ -56,6 +57,7 @@ class ExtraClassesViewModel @Inject constructor(
     private val classOccurrenceDao: ClassOccurrenceDao,
     private val subjectDao: SubjectDao,
     private val reminderScheduler: ClassReminderScheduler,
+    private val settingsRepository: SettingsRepository,
     @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -71,8 +73,13 @@ class ExtraClassesViewModel @Inject constructor(
     )
     val form: StateFlow<ExtraClassForm> = _form.asStateFlow()
 
-    val subjects: StateFlow<List<Subject>> = subjectDao.getAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val subjects: StateFlow<List<Subject>> = combine(
+        subjectDao.getAll(),
+        settingsRepository.settings
+    ) { all, settings ->
+        val activeSemId = settings.activeSemesterId
+        if (activeSemId != null) all.filter { it.semesterId == activeSemId } else all
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _editingOriginalForm = MutableStateFlow<ExtraClassForm?>(null)
 
@@ -86,12 +93,16 @@ class ExtraClassesViewModel @Inject constructor(
 
     val upcomingExtras: StateFlow<List<ExtraClassItem>> = combine(
         classOccurrenceDao.getAll(),
-        subjectDao.getAll()
-    ) { occurrences, subjects ->
+        subjectDao.getAll(),
+        settingsRepository.settings
+    ) { occurrences, subjects, settings ->
+        val activeSemId = settings.activeSemesterId
+        val validSubjects = if (activeSemId != null) subjects.filter { it.semesterId == activeSemId } else subjects
+        val validSubjectIds = validSubjects.map { it.id }.toSet()
         val today = LocalDate.now()
-        val subjectsById = subjects.associateBy { it.id }
+        val subjectsById = validSubjects.associateBy { it.id }
         occurrences
-            .filter { it.source == OccurrenceSource.EXTRA && !it.date.isBefore(today) }
+            .filter { it.source == OccurrenceSource.EXTRA && !it.date.isBefore(today) && it.subjectId in validSubjectIds }
             .sortedWith(compareBy({ it.date }, { it.startTime }))
             .map { occ ->
                 val sub = subjectsById[occ.subjectId]
@@ -101,12 +112,16 @@ class ExtraClassesViewModel @Inject constructor(
 
     val pastExtras: StateFlow<List<ExtraClassItem>> = combine(
         classOccurrenceDao.getAll(),
-        subjectDao.getAll()
-    ) { occurrences, subjects ->
+        subjectDao.getAll(),
+        settingsRepository.settings
+    ) { occurrences, subjects, settings ->
+        val activeSemId = settings.activeSemesterId
+        val validSubjects = if (activeSemId != null) subjects.filter { it.semesterId == activeSemId } else subjects
+        val validSubjectIds = validSubjects.map { it.id }.toSet()
         val today = LocalDate.now()
-        val subjectsById = subjects.associateBy { it.id }
+        val subjectsById = validSubjects.associateBy { it.id }
         occurrences
-            .filter { it.source == OccurrenceSource.EXTRA && it.date.isBefore(today) }
+            .filter { it.source == OccurrenceSource.EXTRA && it.date.isBefore(today) && it.subjectId in validSubjectIds }
             .sortedWith(compareByDescending<ClassOccurrence> { it.date }.thenByDescending { it.startTime })
             .map { occ ->
                 val sub = subjectsById[occ.subjectId]

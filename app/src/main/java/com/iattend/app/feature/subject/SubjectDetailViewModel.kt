@@ -11,6 +11,8 @@ import com.iattend.app.core.data.db.AssessmentDao
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassOccurrenceDao
 import com.iattend.app.core.data.db.OccurrenceStatus
+import com.iattend.app.core.data.db.Semester
+import com.iattend.app.core.data.db.SemesterDao
 import com.iattend.app.core.data.db.Subject
 import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.datastore.CalendarViewMode
@@ -19,6 +21,7 @@ import com.iattend.app.core.domain.assessment.AssessmentGradingCalculator
 import com.iattend.app.core.domain.assessment.SubjectGradingSummary
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import com.iattend.app.core.domain.stats.AttendanceStatsCalculator
+import com.iattend.app.core.domain.stats.StreakCalculator
 import com.iattend.app.core.navigation.SubjectDetailRoute
 import com.iattend.app.core.notifications.ClassReminderScheduler
 import com.iattend.app.widget.UpcomingClassesWidget
@@ -50,7 +53,11 @@ data class SubjectDetailState(
     val linkedAssessmentsByOccurrenceId: Map<Long, List<Assessment>> = emptyMap(),
     val gradingSummary: SubjectGradingSummary? = null,
     val attendanceStatusByDate: Map<LocalDate, OccurrenceStatus> = emptyMap(),
-    val assessmentDates: Set<LocalDate> = emptySet()
+    val assessmentDates: Set<LocalDate> = emptySet(),
+    val currentStreak: Int = 0,
+    val bestStreak: Int = 0,
+    val semesterName: String? = null,
+    val isSemesterArchived: Boolean = false
 )
 
 @HiltViewModel
@@ -61,6 +68,7 @@ class SubjectDetailViewModel @Inject constructor(
     private val assessmentDao: AssessmentDao,
     private val occurrenceRepository: OccurrenceRepository,
     private val reminderScheduler: ClassReminderScheduler,
+    private val semesterDao: SemesterDao,
     @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -80,6 +88,7 @@ class SubjectDetailViewModel @Inject constructor(
         classOccurrenceDao.getForSubject(subjectId),
         assessmentDao.getForSubject(subjectId),
         settingsRepository.settings,
+        semesterDao.getAll(),
         _selectedDate,
         _calendarMonth,
         _viewMode
@@ -90,9 +99,14 @@ class SubjectDetailViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val assessments = (params[2] as? List<Assessment>) ?: emptyList()
         val settings = params[3] as com.iattend.app.core.datastore.AppSettings
-        val selDate = params[4] as LocalDate
-        val calMonth = params[5] as YearMonth
-        val mode = params[6] as CalendarViewMode
+        @Suppress("UNCHECKED_CAST")
+        val semesters = (params[4] as? List<Semester>) ?: emptyList()
+        val selDate = params[5] as LocalDate
+        val calMonth = params[6] as YearMonth
+        val mode = params[7] as CalendarViewMode
+
+        val semester = subject?.let { s -> semesters.find { it.id == s.semesterId } }
+        val isArchived = semester?.isArchived == true || (semester != null && semester.endDate.isBefore(LocalDate.now()))
 
         val history = occurrences.sortedBy { it.date }
         val requiredPercentage = subject?.requiredPercentageOverride ?: settings.requiredPercentageDefault
@@ -131,6 +145,7 @@ class SubjectDetailViewModel @Inject constructor(
         }.toMap()
 
         val assessDates = assessments.map { it.date }.toSet()
+        val streakStats = StreakCalculator.compute(occurrences)
 
         SubjectDetailState(
             subject = subject,
@@ -145,7 +160,11 @@ class SubjectDetailViewModel @Inject constructor(
             linkedAssessmentsByOccurrenceId = linkedMap,
             gradingSummary = gradingSummary,
             attendanceStatusByDate = attendanceByDate,
-            assessmentDates = assessDates
+            assessmentDates = assessDates,
+            currentStreak = streakStats.currentStreak,
+            bestStreak = streakStats.bestStreak,
+            semesterName = semester?.name,
+            isSemesterArchived = isArchived
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SubjectDetailState())
 

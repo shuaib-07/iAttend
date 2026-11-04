@@ -1,7 +1,6 @@
 package com.iattend.app.core.data.db
 
 import androidx.room.Dao
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -19,4 +18,13 @@ interface RecurringHolidayRuleDao {
 
     @Query("SELECT * FROM recurring_holiday_rules")
     suspend fun getAllOnce(): List<RecurringHolidayRule>
+
+    @Query("SELECT * FROM recurring_holiday_rules WHERE semesterId = :semesterId")
+    fun getForSemester(semesterId: Long): Flow<List<RecurringHolidayRule>>
+
+    @Query("SELECT * FROM recurring_holiday_rules WHERE semesterId = :semesterId")
+    suspend fun getForSemesterOnce(semesterId: Long): List<RecurringHolidayRule>
+
+    @Query("DELETE FROM recurring_holiday_rules WHERE semesterId = :semesterId")
+    suspend fun deleteForSemester(semesterId: Long)
 }

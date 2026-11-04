@@ -56,7 +56,8 @@ data class AppSettings(
     val autoCheckUpdates: Boolean = true,
     /** -1 = not started, 0..TUTORIAL_STEP_COUNT-1 = in progress, TUTORIAL_STEP_COUNT = done. */
     val tutorialStep: Int = -1,
-    val timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR
+    val timeFormat: TimeFormat = TimeFormat.TWELVE_HOUR,
+    val activeSemesterId: Long? = null
 )
 
 @Singleton
@@ -83,6 +84,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         val TUTORIAL_STEP = androidx.datastore.preferences.core.intPreferencesKey("tutorial_step")
         val TIME_FORMAT = stringPreferencesKey("time_format")
         val CALENDAR_VIEW_MODE = stringPreferencesKey("calendar_view_mode")
+        val ACTIVE_SEMESTER_ID = androidx.datastore.preferences.core.longPreferencesKey("active_semester_id")
     }
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
@@ -104,8 +106,19 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
             lastSeenVersion = prefs[Keys.LAST_SEEN_VERSION] ?: "",
             autoCheckUpdates = prefs[Keys.AUTO_CHECK_UPDATES] ?: true,
             tutorialStep = prefs[Keys.TUTORIAL_STEP] ?: -1,
-            timeFormat = prefs[Keys.TIME_FORMAT]?.let { runCatching { TimeFormat.valueOf(it) }.getOrNull() } ?: TimeFormat.TWELVE_HOUR
+            timeFormat = prefs[Keys.TIME_FORMAT]?.let { runCatching { TimeFormat.valueOf(it) }.getOrNull() } ?: TimeFormat.TWELVE_HOUR,
+            activeSemesterId = prefs[Keys.ACTIVE_SEMESTER_ID]
         )
+    }
+
+    suspend fun setActiveSemesterId(id: Long?) {
+        dataStore.edit { prefs ->
+            if (id == null) {
+                prefs.remove(Keys.ACTIVE_SEMESTER_ID)
+            } else {
+                prefs[Keys.ACTIVE_SEMESTER_ID] = id
+            }
+        }
     }
 
     val calendarViewMode: Flow<CalendarViewMode> = dataStore.data.map { prefs ->

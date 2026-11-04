@@ -26,10 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import com.iattend.app.core.navigation.LocalNavigationContentPadding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.iattend.app.core.domain.stats.StreakCalculator
+import com.iattend.app.core.domain.stats.StreakStats
 import com.iattend.app.core.ui.AttendanceHeatmap
+import com.iattend.app.core.ui.StreakCards
 import com.iattend.app.core.ui.DateRangePickerField
 import com.iattend.app.ui.theme.Motion
 import com.iattend.app.core.ui.EmptyListState
@@ -52,6 +56,17 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
     val filteredWeekly = remember(state.weeklyTrend, filterStart, filterEnd) {
         if (filterStart == null && filterEnd == null) state.weeklyTrend
         else state.weeklyTrend.filter { (filterStart == null || !it.weekStart.isBefore(filterStart)) && (filterEnd == null || !it.weekStart.isAfter(filterEnd)) }
+    }
+    val streakStats = remember(state.markedOccurrences, state.bestStreak, state.currentStreak, filterStart, filterEnd) {
+        if (filterStart == null && filterEnd == null) {
+            StreakStats(currentStreak = state.currentStreak, bestStreak = state.bestStreak)
+        } else {
+            val occs = state.markedOccurrences.filter {
+                (filterStart == null || !it.date.isBefore(filterStart)) &&
+                (filterEnd == null || !it.date.isAfter(filterEnd))
+            }
+            StreakCalculator.compute(occs)
+        }
     }
 
     LazyColumn(
@@ -87,6 +102,25 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
             }
         }
 
+        // Semesters comparison if multiple semesters exist
+        if (state.allSemestersStats.size > 1) {
+            item {
+                Text(
+                    "SEMESTERS OVERVIEW",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
+                )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        state.allSemestersStats.forEach { stat ->
+                            SemesterBarRow(stat, isActive = stat.semester.id == state.activeSemester?.id)
+                        }
+                    }
+                }
+            }
+        }
+
         // Balance Chart (weekly avg smoothed) above heatmap per spec #5
         item {
             Text(
@@ -101,6 +135,23 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
             )
         }
 
+        // Streaks
+        if (state.subjects.isNotEmpty()) {
+            item {
+                Text(
+                    "STREAKS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
+                )
+                StreakCards(
+                    bestStreak = streakStats.bestStreak,
+                    currentStreak = streakStats.currentStreak,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
         if (filteredHeatmap.isNotEmpty()) {
             item {
                 Text(
@@ -109,9 +160,12 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
                 )
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    AttendanceHeatmap(filteredHeatmap, modifier = Modifier.fillMaxWidth().padding(16.dp))
-                }
+                AttendanceHeatmap(
+                    presentCountByDate = filteredHeatmap,
+                    filterStartDate = filterStart,
+                    filterEndDate = filterEnd,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -152,6 +206,59 @@ private fun SubjectBarRow(summary: SubjectSummary) {
             "${summary.percentage.toInt()}%",
             style = MaterialTheme.typography.bodySmall,
             color = barColor,
+            modifier = Modifier.widthIn(min = 40.dp)
+        )
+    }
+}
+
+@Composable
+private fun SemesterBarRow(stat: SemesterAttendanceStat, isActive: Boolean) {
+    val barColor = if (stat.total > 0 && stat.percentage < stat.semester.targetPercentage) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val fraction by animateFloatAsState(
+        targetValue = (stat.percentage / 100f).coerceIn(0f, 1f),
+        animationSpec = Motion.gentle(),
+        label = "semesterBarFraction"
+    )
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.width(112.dp)) {
+            Text(
+                stat.semester.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (isActive) {
+                Text(
+                    "Active",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(10.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction)
+                    .background(barColor, MaterialTheme.shapes.extraSmall)
+            )
+        }
+        Text(
+            "${stat.percentage.toInt()}%",
+            style = MaterialTheme.typography.bodySmall,
+            color = barColor,
+            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
             modifier = Modifier.widthIn(min = 40.dp)
         )
     }

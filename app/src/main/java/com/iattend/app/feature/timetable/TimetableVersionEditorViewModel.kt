@@ -17,6 +17,7 @@ import com.iattend.app.core.data.db.TimetableSlot
 import com.iattend.app.core.data.db.TimetableSlotDao
 import com.iattend.app.core.data.db.TimetableVersion
 import com.iattend.app.core.data.db.TimetableVersionDao
+import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.occurrence.OccurrenceRepository
 import com.iattend.app.core.navigation.TimetableVersionEditorRoute
 import com.iattend.app.widget.UpcomingClassesWidget
@@ -87,6 +88,7 @@ class TimetableVersionEditorViewModel @Inject constructor(
     private val subjectDao: SubjectDao,
     private val recurringHolidayRuleDao: RecurringHolidayRuleDao,
     private val occurrenceRepository: OccurrenceRepository,
+    private val settingsRepository: SettingsRepository,
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -108,7 +110,10 @@ class TimetableVersionEditorViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val subjects = subjectDao.getAll().first()
+            val settings = settingsRepository.settings.first()
+            val activeSemId = settings.activeSemesterId ?: 1L
+            val allSubjects = subjectDao.getAll().first()
+            val subjects = allSubjects.filter { it.semesterId == activeSemId }
             var label = ""
             var effectiveFrom = LocalDate.now()
             var slots = emptyList<DraftSlot>()
@@ -241,11 +246,18 @@ class TimetableVersionEditorViewModel @Inject constructor(
         viewModelScope.launch {
             val s = _state.value
             val changedDefaultRooms = mutableMapOf<Long, String?>()
+            val settings = settingsRepository.settings.first()
+            val activeSemId = settings.activeSemesterId ?: 1L
+            val semesterId = if (isNew) {
+                activeSemId
+            } else {
+                timetableVersionDao.getById(route.versionId)?.semesterId ?: activeSemId
+            }
             val versionId = db.withTransaction {
                 val id = if (isNew) {
-                    timetableVersionDao.insert(TimetableVersion(label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
+                    timetableVersionDao.insert(TimetableVersion(semesterId = semesterId, label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
                 } else {
-                    timetableVersionDao.update(TimetableVersion(id = route.versionId, label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
+                    timetableVersionDao.update(TimetableVersion(id = route.versionId, semesterId = semesterId, label = s.label.ifBlank { null }, effectiveFrom = s.effectiveFrom))
                     route.versionId
                 }
                 s.slots.filter { it.setSubjectDefaultRoom && it.subjectId != null }.forEach { slot ->
