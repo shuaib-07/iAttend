@@ -89,8 +89,12 @@ import com.iattend.app.core.data.db.AssessmentType
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.OccurrenceSource
 import com.iattend.app.core.data.db.OccurrenceStatus
+import com.iattend.app.core.data.db.Semester
 import com.iattend.app.core.datastore.CalendarViewMode
 import com.iattend.app.feature.semester.ArchivedSemesterBanner
+import com.iattend.app.feature.semester.SemesterEditorDialog
+import com.iattend.app.feature.semester.SemesterSelectorChip
+import com.iattend.app.feature.semester.SemesterSwitcherBottomSheet
 import com.iattend.app.feature.semester.SemesterViewModel
 import com.iattend.app.core.tutorial.LocalTutorialController
 import com.iattend.app.core.tutorial.TutorialSignal

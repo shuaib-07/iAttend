@@ -64,7 +64,7 @@ class CalendarViewModel @Inject constructor(
     private val occurrenceRepository: OccurrenceRepository,
     private val reminderScheduler: ClassReminderScheduler,
     @ApplicationContext private val context: Context,
-    subjectDao: SubjectDao,
+    private val subjectDao: SubjectDao,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
@@ -224,7 +224,9 @@ class CalendarViewModel @Inject constructor(
         }
 
         // 2. Otherwise find the active version for the occurrence date
-        val versions = timetableVersionDao.getAllOnce()
+        val subject = subjectDao.getByIdOnce(occurrence.subjectId)
+        val allVersions = timetableVersionDao.getAllOnce()
+        val versions = if (subject != null) allVersions.filter { it.semesterId == subject.semesterId } else allVersions
         if (versions.isEmpty()) return null
         val activeVersion = versions
             .filter { !it.effectiveFrom.isAfter(occurrence.date) }

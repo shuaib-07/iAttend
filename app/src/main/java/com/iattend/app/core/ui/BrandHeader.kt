@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.iattend.app.core.data.db.Semester
 import com.iattend.app.core.tutorial.tutorialTarget
+import com.iattend.app.feature.semester.SemesterSelectorChip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +48,8 @@ private const val SUBTITLE_TRANSITION_DURATION = 450
 @Composable
 fun BrandHeader(
     currentTabLabel: String = "",
+    activeSemester: Semester? = null,
+    onSemesterClick: (() -> Unit)? = null,
     onNotificationClick: (() -> Unit)? = null,
     hazeState: HazeState,
     modifier: Modifier = Modifier
@@ -103,6 +107,12 @@ fun BrandHeader(
                 }
             },
             actions = {
+                if (activeSemester != null && onSemesterClick != null) {
+                    SemesterSelectorChip(
+                        semester = activeSemester,
+                        onClick = onSemesterClick
+                    )
+                }
                 if (onNotificationClick != null) {
                     IconButton(onClick = onNotificationClick, modifier = Modifier.tutorialTarget("notification_bell")) {
                         Icon(Icons.Default.Notifications, contentDescription = "Notifications")
@@ -121,6 +131,8 @@ fun BrandHeader(
 @Composable
 fun BrandHeader(
     currentTabLabel: String = "",
+    activeSemester: Semester? = null,
+    onSemesterClick: (() -> Unit)? = null,
     onNotificationClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -141,6 +153,12 @@ fun BrandHeader(
             }
         },
         actions = {
+            if (activeSemester != null && onSemesterClick != null) {
+                SemesterSelectorChip(
+                    semester = activeSemester,
+                    onClick = onSemesterClick
+                )
+            }
             if (onNotificationClick != null) {
                 IconButton(onClick = onNotificationClick, modifier = Modifier.tutorialTarget("notification_bell")) {
                     Icon(Icons.Default.Notifications, contentDescription = "Notifications")

@@ -57,6 +57,10 @@ import com.iattend.app.feature.holidays.HolidayListScreen
 import com.iattend.app.feature.home.HomeScreen
 import com.iattend.app.feature.home.InsightsScreen
 import com.iattend.app.feature.onboarding.OnboardingScreen
+import com.iattend.app.core.data.db.Semester
+import com.iattend.app.feature.semester.SemesterEditorDialog
+import com.iattend.app.feature.semester.SemesterSwitcherBottomSheet
+import com.iattend.app.feature.semester.SemesterViewModel
 import com.iattend.app.feature.settings.AboutScreen
 import com.iattend.app.feature.settings.AppearanceScreen
 import com.iattend.app.feature.settings.LicensesScreen
@@ -110,6 +114,11 @@ fun AppNavHost(startDestination: Any) {
     val hazeState = rememberHazeState()
     val appViewModel = hiltViewModel<AppViewModel>()
     val tutorialController = hiltViewModel<TutorialController>()
+    val semesterViewModel = hiltViewModel<SemesterViewModel>()
+    val semesterState by semesterViewModel.uiState.collectAsState()
+    var showSemesterSheet by remember { mutableStateOf(false) }
+    var showCreateSemesterDialog by remember { mutableStateOf(false) }
+    var editingSemester by remember { mutableStateOf<Semester?>(null) }
     val navBarStyle by appViewModel.navBarStyle.collectAsState()
     val timeFormat by appViewModel.timeFormat.collectAsState()
     val updateAvailableInfo by appViewModel.updateAvailableInfo.collectAsState()
@@ -313,10 +322,54 @@ fun AppNavHost(startDestination: Any) {
         ) {
             BrandHeader(
                 currentTabLabel = currentTabLabel,
+                activeSemester = semesterState.activeSemester,
+                onSemesterClick = { showSemesterSheet = true },
                 onNotificationClick = { showNotificationSheet = true },
                 hazeState = hazeState
             )
         }
+    }
+
+    if (showSemesterSheet) {
+        SemesterSwitcherBottomSheet(
+            activeSemester = semesterState.activeSemester,
+            semesters = semesterState.semesters,
+            onSelectSemester = { id -> semesterViewModel.switchSemester(id) },
+            onAddNew = {
+                showSemesterSheet = false
+                showCreateSemesterDialog = true
+            },
+            onEdit = { sem ->
+                showSemesterSheet = false
+                editingSemester = sem
+            },
+            onToggleArchive = { sem -> semesterViewModel.toggleArchive(sem) },
+            onDelete = { id -> semesterViewModel.deleteSemester(id) },
+            onDismiss = { showSemesterSheet = false }
+        )
+    }
+
+    if (showCreateSemesterDialog) {
+        SemesterEditorDialog(
+            existingSemesters = semesterState.semesters,
+            onSave = { name, start, end, targetPct, copyRules, copyHolidays ->
+                semesterViewModel.createSemester(name, start, end, targetPct, copyRules, copyHolidays)
+                showCreateSemesterDialog = false
+            },
+            onDismiss = { showCreateSemesterDialog = false }
+        )
+    }
+
+    editingSemester?.let { sem ->
+        SemesterEditorDialog(
+            initialSemester = sem,
+            existingSemesters = semesterState.semesters,
+            onSave = { name, start, end, targetPct, copyRules, copyHolidays ->
+                semesterViewModel.updateSemester(sem.copy(name = name, startDate = start, endDate = end, targetPercentage = targetPct))
+                editingSemester = null
+            },
+            onDismiss = { editingSemester = null }
+        )
     }
 
     ModalSheet(visible = showNotificationSheet, onVisibleChange = { showNotificationSheet = it }) {

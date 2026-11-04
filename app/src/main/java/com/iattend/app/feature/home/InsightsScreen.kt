@@ -34,6 +34,16 @@ import com.iattend.app.core.domain.stats.StreakCalculator
 import com.iattend.app.core.domain.stats.StreakStats
 import com.iattend.app.core.ui.AttendanceHeatmap
 import com.iattend.app.core.ui.StreakCards
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import com.iattend.app.feature.bunk.BunkSimulatorBottomSheet
 import com.iattend.app.core.ui.DateRangePickerField
 import com.iattend.app.ui.theme.Motion
 import com.iattend.app.core.ui.EmptyListState
@@ -45,6 +55,7 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var filterStart by remember { mutableStateOf<LocalDate?>(null) }
     var filterEnd by remember { mutableStateOf<LocalDate?>(null) }
+    var showBunkSimulator by remember { mutableStateOf(false) }
 
     // Filtered copies for DateRange per spec 2b
     val filteredHeatmap = remember(state.heatmap, filterStart, filterEnd) {
@@ -152,6 +163,65 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
             }
         }
 
+        // Bunk Simulation
+        item {
+            Text(
+                "BUNK SIMULATION",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
+            )
+            Card(
+                onClick = { showBunkSimulator = true },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Calculate,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Smart Bunk Simulator",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Simulate skipped classes, calculate target recovery, and plan holiday bridge breaks.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Open Simulator",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
         if (filteredHeatmap.isNotEmpty()) {
             item {
                 Text(
@@ -168,6 +238,13 @@ fun InsightsScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 )
             }
         }
+    }
+
+    if (showBunkSimulator) {
+        BunkSimulatorBottomSheet(
+            initialSubjectId = null,
+            onDismiss = { showBunkSimulator = false }
+        )
     }
 }
 

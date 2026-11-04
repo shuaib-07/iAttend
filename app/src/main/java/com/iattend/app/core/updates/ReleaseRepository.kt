@@ -111,23 +111,23 @@ class ReleaseRepository @Inject constructor(
         return listOf(
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Multi-Semester Management",
-                description = "Track different semesters with their own term dates, subjects, timetables, and target attendance goals. Switch between semesters anytime or review previous semester performance."
+                title = "Smart Bunk Calculator & Simulator",
+                description = "Interactive What-If simulation with attendance steppers, target goal calculator, and a 14-day Bunk Planner that recommends long holiday breaks and protects exam days."
             ),
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Side-by-Side Streaks & Info",
-                description = "Track Best and Current attendance streaks side by side in both Insights and Subject Detail screens. Tap either card to view an explanation of how it is calculated."
+                title = "Header Timetable Switcher",
+                description = "Switch between different semesters and timetables instantly from the top header right next to notifications across Calendar and all screens."
             ),
             FeatureHighlight(
                 category = "IMPROVEMENT",
-                title = "Interactive Insights & Heatmap",
-                description = "Explore attendance with an interactive commit-grid activity heatmap and tappable day-by-day weekly trend statistics."
+                title = "In-App Update Downloads",
+                description = "Download and install new app updates directly within the app with real-time download progress and status feedback."
             ),
             FeatureHighlight(
-                category = "IMPROVEMENT",
-                title = "Animated Subject Calendar & UI Polish",
-                description = "Enjoy smooth animated date transitions in Subject Detail calendars, refined navigation bar and FAB styling, onboarding semester setup, and holiday occurrence bug fixes."
+                category = "BUG FIXES",
+                title = "Tour Fail-Safe & UI Polish",
+                description = "Added an Exit Tour button and backdrop dismissal to the guided walkthrough, plus tightened compact semantic badges across subject cards."
             )
         )
     }

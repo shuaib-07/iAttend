@@ -56,9 +56,6 @@ fun ScheduleManagerScreen(
     semesterViewModel: SemesterViewModel = hiltViewModel()
 ) {
     val semesterState by semesterViewModel.uiState.collectAsState()
-    var showSemesterSheet by remember { mutableStateOf(false) }
-    var editingSemester by remember { mutableStateOf<Semester?>(null) }
-    var showCreateDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -78,19 +75,11 @@ fun ScheduleManagerScreen(
             )
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Schedule Manager", style = MaterialTheme.typography.headlineSmall)
-            SemesterSelectorChip(
-                semester = semesterState.activeSemester,
-                onClick = { showSemesterSheet = true }
-            )
-        }
+        Text(
+            "Schedule Manager",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         Text(
             "CONFIGURATION",
             style = MaterialTheme.typography.labelMedium,
@@ -103,48 +92,6 @@ fun ScheduleManagerScreen(
         ManagerTile(Icons.Default.CalendarMonth, "Manage Holidays", "Set exception holidays", onManageHolidays)
         ManagerTile(Icons.AutoMirrored.Filled.EventNote, "Extra Classes", "Schedule one-off sessions", onExtraClasses)
         ManagerTile(Icons.Default.Quiz, "Tests & Exams", "Add and manage assessment timetables", onExamManager)
-    }
-
-    if (showSemesterSheet) {
-        SemesterSwitcherBottomSheet(
-            activeSemester = semesterState.activeSemester,
-            semesters = semesterState.semesters,
-            onSelectSemester = { id -> semesterViewModel.switchSemester(id) },
-            onAddNew = {
-                showSemesterSheet = false
-                showCreateDialog = true
-            },
-            onEdit = { sem ->
-                showSemesterSheet = false
-                editingSemester = sem
-            },
-            onToggleArchive = { sem -> semesterViewModel.toggleArchive(sem) },
-            onDelete = { id -> semesterViewModel.deleteSemester(id) },
-            onDismiss = { showSemesterSheet = false }
-        )
-    }
-
-    if (showCreateDialog) {
-        SemesterEditorDialog(
-            existingSemesters = semesterState.semesters,
-            onSave = { name, start, end, targetPct, copyRules, copyHolidays ->
-                semesterViewModel.createSemester(name, start, end, targetPct, copyRules, copyHolidays)
-                showCreateDialog = false
-            },
-            onDismiss = { showCreateDialog = false }
-        )
-    }
-
-    editingSemester?.let { sem ->
-        SemesterEditorDialog(
-            initialSemester = sem,
-            existingSemesters = semesterState.semesters,
-            onSave = { name, start, end, targetPct, _, _ ->
-                semesterViewModel.updateSemester(sem.copy(name = name, startDate = start, endDate = end, targetPercentage = targetPct))
-                editingSemester = null
-            },
-            onDismiss = { editingSemester = null }
-        )
     }
 }
 

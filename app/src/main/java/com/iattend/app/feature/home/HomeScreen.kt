@@ -33,6 +33,12 @@ import com.iattend.app.feature.semester.SemesterSelectorChip
 import com.iattend.app.feature.semester.SemesterSwitcherBottomSheet
 import com.iattend.app.feature.semester.SemesterViewModel
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.iattend.app.feature.bunk.BunkSimulatorBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -68,12 +74,11 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val semesterState by semesterViewModel.uiState.collectAsState()
-    var showSemesterSheet by remember { mutableStateOf(false) }
-    var editingSemester by remember { mutableStateOf<Semester?>(null) }
-    var showCreateDialog by remember { mutableStateOf(false) }
 
     val tutorialSubjectId = LocalTutorialController.current?.tutorialSubjectId
     var showUnmarkedClasses by remember { mutableStateOf(false) }
+    var bunkSimulatorSubjectId by remember { mutableStateOf<Long?>(null) }
+    var showBunkSimulatorSheet by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     val collapseThresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
@@ -99,19 +104,6 @@ fun HomeScreen(
                         if (current != null) semesterViewModel.switchSemester(current.id)
                     },
                     modifier = Modifier.padding(bottom = 12.dp)
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SemesterSelectorChip(
-                    semester = semesterState.activeSemester,
-                    onClick = { showSemesterSheet = true }
                 )
             }
 
@@ -195,7 +187,15 @@ fun HomeScreen(
             val cardModifier = Modifier.animateItem().let {
                 if (summary.subject.id == tutorialSubjectId) it.tutorialTarget("subject_summary_card") else it
             }
-            SubjectSummaryCard(summary, onClick = { onSubjectClick(summary.subject.id) }, modifier = cardModifier)
+            SubjectSummaryCard(
+                summary = summary,
+                onClick = { onSubjectClick(summary.subject.id) },
+                onOpenBunkSimulator = { subjId ->
+                    bunkSimulatorSubjectId = subjId
+                    showBunkSimulatorSheet = true
+                },
+                modifier = cardModifier
+            )
         }
     }
 
@@ -252,45 +252,10 @@ fun HomeScreen(
         }
     }
 
-    if (showSemesterSheet) {
-        SemesterSwitcherBottomSheet(
-            activeSemester = semesterState.activeSemester,
-            semesters = semesterState.semesters,
-            onSelectSemester = { id -> semesterViewModel.switchSemester(id) },
-            onAddNew = {
-                showSemesterSheet = false
-                showCreateDialog = true
-            },
-            onEdit = { sem ->
-                showSemesterSheet = false
-                editingSemester = sem
-            },
-            onToggleArchive = { sem -> semesterViewModel.toggleArchive(sem) },
-            onDelete = { id -> semesterViewModel.deleteSemester(id) },
-            onDismiss = { showSemesterSheet = false }
-        )
-    }
-
-    if (showCreateDialog) {
-        SemesterEditorDialog(
-            existingSemesters = semesterState.semesters,
-            onSave = { name, start, end, targetPct, copyRules, copyHolidays ->
-                semesterViewModel.createSemester(name, start, end, targetPct, copyRules, copyHolidays)
-                showCreateDialog = false
-            },
-            onDismiss = { showCreateDialog = false }
-        )
-    }
-
-    editingSemester?.let { sem ->
-        SemesterEditorDialog(
-            initialSemester = sem,
-            existingSemesters = semesterState.semesters,
-            onSave = { name, start, end, targetPct, _, _ ->
-                semesterViewModel.updateSemester(sem.copy(name = name, startDate = start, endDate = end, targetPercentage = targetPct))
-                editingSemester = null
-            },
-            onDismiss = { editingSemester = null }
+    if (showBunkSimulatorSheet) {
+        BunkSimulatorBottomSheet(
+            initialSubjectId = bunkSimulatorSubjectId,
+            onDismiss = { showBunkSimulatorSheet = false }
         )
     }
 }
@@ -357,15 +322,22 @@ private fun percentOfOrNull(value: Int, total: Int): Float? =
     if (total <= 0) null else percentOf(value, total)
 
 @Composable
-private fun SubjectSummaryCard(summary: SubjectSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick)) {
+private fun SubjectSummaryCard(
+    summary: SubjectSummary,
+    onClick: () -> Unit,
+    onOpenBunkSimulator: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier.fillMaxWidth().padding(vertical = 3.dp).clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(16.dp).background(Color(summary.subject.colorArgb), CircleShape))
-            Column(modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.size(14.dp).background(Color(summary.subject.colorArgb), CircleShape))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(summary.subject.name, style = MaterialTheme.typography.bodyLarge)
                 summary.subject.teacherName?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -377,14 +349,44 @@ private fun SubjectSummaryCard(summary: SubjectSummary, onClick: () -> Unit, mod
                 )
                 val needed = summary.stats.classesNeeded
                 val canSkip = summary.stats.classesCanSkip
-                Text(
-                    when {
-                        needed == null -> "Projection: N/A"
-                        needed > 0 -> "Needs $needed more to hit ${summary.requiredPercentage.toInt()}%"
-                        else -> "Can skip $canSkip and stay above ${summary.requiredPercentage.toInt()}%"
-                    },
-                    style = MaterialTheme.typography.bodySmall
-                )
+                val (pillBg, pillContent) = when {
+                    needed != null && needed > 0 ->
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f) to MaterialTheme.colorScheme.error
+                    canSkip != null && canSkip >= 2 ->
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f) to MaterialTheme.colorScheme.primary
+                    else ->
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f) to MaterialTheme.colorScheme.tertiary
+                }
+                Box(
+                    modifier = Modifier
+                        .padding(top = 1.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(pillBg)
+                        .clickable { onOpenBunkSimulator(summary.subject.id) }
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Calculate,
+                            contentDescription = "Bunk Simulator",
+                            tint = pillContent,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = when {
+                                needed == null -> "Bunk Simulator"
+                                needed > 0 -> "Needs $needed more to hit ${summary.requiredPercentage.toInt()}%"
+                                else -> "Can skip $canSkip and stay above ${summary.requiredPercentage.toInt()}%"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = pillContent
+                        )
+                    }
+                }
             }
             val belowThreshold = summary.total > 0 && summary.percentage < summary.requiredPercentage
             ProgressRing(

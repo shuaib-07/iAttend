@@ -27,7 +27,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.ViewWeek
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.iattend.app.feature.bunk.BunkSimulatorBottomSheet
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -103,6 +107,7 @@ fun SubjectDetailScreen(
 
     var scoreConflictData by remember { mutableStateOf<Pair<ClassOccurrence, OccurrenceStatus>?>(null) }
     var conflictingTests by remember { mutableStateOf<List<Assessment>>(emptyList()) }
+    var showBunkSimulator by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.deleted.collect { onBack() } }
 
@@ -207,11 +212,43 @@ fun SubjectDetailScreen(
                                     stats.totalOverall == null -> Text("Projection: N/A", style = MaterialTheme.typography.bodyMedium)
                                     else -> {
                                         Text("Total: ${stats.totalOverall}, remaining: ${stats.remaining}", style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            if ((stats.classesNeeded ?: 0) > 0) "Needs ${stats.classesNeeded} more to hit target"
-                                            else "Can skip ${stats.classesCanSkip} and stay above target",
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
+                                        val needed = stats.classesNeeded ?: 0
+                                        val canSkip = stats.classesCanSkip ?: 0
+                                        val (pillBg, pillContent) = when {
+                                            needed > 0 ->
+                                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f) to MaterialTheme.colorScheme.error
+                                            canSkip >= 2 ->
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f) to MaterialTheme.colorScheme.primary
+                                            else ->
+                                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f) to MaterialTheme.colorScheme.tertiary
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = 2.dp)
+                                                .clip(RoundedCornerShape(50))
+                                                .background(pillBg)
+                                                .clickable { showBunkSimulator = true }
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Calculate,
+                                                    contentDescription = "Bunk Simulator",
+                                                    tint = pillContent,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Text(
+                                                    text = if (needed > 0) "Needs $needed more to hit target"
+                                                    else "Can skip $canSkip and stay above target",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = pillContent
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -427,6 +464,13 @@ fun SubjectDetailScreen(
             dismissButton = {
                 TextButton(onClick = { scoreConflictData = null }) { Text("Cancel") }
             }
+        )
+    }
+
+    if (showBunkSimulator) {
+        BunkSimulatorBottomSheet(
+            initialSubjectId = state.subject?.id,
+            onDismiss = { showBunkSimulator = false }
         )
     }
 }
