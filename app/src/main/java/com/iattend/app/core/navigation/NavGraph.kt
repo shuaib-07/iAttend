@@ -45,8 +45,6 @@ import com.iattend.app.core.ui.BrandHeader
 import com.iattend.app.core.ui.modalsheet.ModalSheet
 import com.iattend.app.core.updates.UpdateAvailableModal
 import com.iattend.app.feature.notifications.NotificationSettingsSheetContent
-import com.iattend.app.ui.modifiers.BlurDirection
-import com.iattend.app.ui.modifiers.progressiveBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import com.iattend.app.feature.assessment.AllAssessmentsScreen
@@ -130,7 +128,6 @@ fun AppNavHost(startDestination: Any) {
     }
 
     var showNotificationSheet by remember { mutableStateOf(false) }
-    val bottomScrimHeightPx = with(LocalDensity.current) { 140.dp.toPx() }
     val configuration = LocalConfiguration.current
     val useNavigationRail = configuration.screenWidthDp >= 600 && configuration.screenHeightDp >= 480
 
@@ -165,16 +162,7 @@ fun AppNavHost(startDestination: Any) {
                         modifier = Modifier
                             .fillMaxSize()
                             .hazeSource(hazeState)
-                            .then(if (navBarStyle == NavBarStyle.CAPSULE) Modifier.layerBackdrop(backdrop) else Modifier)
-                            .then(
-                                if (showBottomBar && !useNavigationRail) {
-                                    Modifier.progressiveBlur(
-                                        blurRadius = 40f,
-                                        height = bottomScrimHeightPx,
-                                        direction = BlurDirection.BOTTOM
-                                    )
-                                } else Modifier
-                            ),
+                            .then(if (navBarStyle == NavBarStyle.CAPSULE) Modifier.layerBackdrop(backdrop) else Modifier),
                         // minus-style transition (see AppNavGraph.kt in the minus reference repo): a
                         // small 30px slide + staggered fade. Their forward/backward detection compares
                         // raw NavDestination ids, which only happens to work for their simple enum-like

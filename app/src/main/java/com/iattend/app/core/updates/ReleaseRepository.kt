@@ -110,6 +110,11 @@ class ReleaseRepository @Inject constructor(
     fun getBuiltInReleaseNotes(): List<FeatureHighlight> {
         return listOf(
             FeatureHighlight(
+                category = "CRITICAL FIX",
+                title = "Black Screen Display Fix",
+                description = "Fixed a GPU shader bug on Samsung and Mali-powered Android 14 devices where an invalid RenderEffect runtime shader caused the screen content to render pure black."
+            ),
+            FeatureHighlight(
                 category = "NEW FEATURE",
                 title = "Smart Bunk Calculator & Simulator",
                 description = "Interactive What-If simulation with attendance steppers, target goal calculator, and a 14-day Bunk Planner that recommends long holiday breaks and protects exam days."
@@ -123,11 +128,6 @@ class ReleaseRepository @Inject constructor(
                 category = "IMPROVEMENT",
                 title = "In-App Update Downloads",
                 description = "Download and install new app updates directly within the app with real-time download progress and status feedback."
-            ),
-            FeatureHighlight(
-                category = "BUG FIXES",
-                title = "Tour Fail-Safe & UI Polish",
-                description = "Added an Exit Tour button and backdrop dismissal to the guided walkthrough, plus tightened compact semantic badges across subject cards."
             )
         )
     }
