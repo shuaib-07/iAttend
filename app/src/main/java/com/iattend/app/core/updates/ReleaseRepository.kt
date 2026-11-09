@@ -110,6 +110,11 @@ class ReleaseRepository @Inject constructor(
     fun getBuiltInReleaseNotes(): List<FeatureHighlight> {
         return listOf(
             FeatureHighlight(
+                category = "NEW FEATURE",
+                title = "Duplicate Timetable Versions",
+                description = "Clone existing timetable schedules with a single tap to easily set up new clinical rotations or mid-semester updates without re-entering all your classes."
+            ),
+            FeatureHighlight(
                 category = "CRITICAL FIX",
                 title = "Black Screen Display Fix",
                 description = "Fixed a GPU shader bug on Samsung and Mali-powered Android 14 devices where an invalid RenderEffect runtime shader caused the screen content to render pure black."
@@ -123,11 +128,6 @@ class ReleaseRepository @Inject constructor(
                 category = "NEW FEATURE",
                 title = "Header Timetable Switcher",
                 description = "Switch between different semesters and timetables instantly from the top header right next to notifications across Calendar and all screens."
-            ),
-            FeatureHighlight(
-                category = "IMPROVEMENT",
-                title = "In-App Update Downloads",
-                description = "Download and install new app updates directly within the app with real-time download progress and status feedback."
             )
         )
     }

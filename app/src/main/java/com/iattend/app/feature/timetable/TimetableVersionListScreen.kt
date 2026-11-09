@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
@@ -53,6 +54,7 @@ fun TimetableVersionListScreen(
     onBack: () -> Unit,
     onAddVersion: () -> Unit,
     onEditVersion: (Long) -> Unit,
+    onDuplicateVersion: (Long) -> Unit,
     viewModel: TimetableVersionListViewModel = hiltViewModel()
 ) {
     val versions by viewModel.versions.collectAsState()
@@ -94,12 +96,30 @@ fun TimetableVersionListScreen(
                                 Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                             Column(Modifier.weight(1f)) {
-                                Text("Effective: ${formatDateWithLong(version.effectiveFrom)}", style = MaterialTheme.typography.titleMedium)
-                                Text("Tap to edit slots", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (!version.label.isNullOrBlank()) {
+                                    Text(version.label, style = MaterialTheme.typography.titleMedium)
+                                    Text("Effective: ${formatDateWithLong(version.effectiveFrom)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    Text("Effective: ${formatDateWithLong(version.effectiveFrom)}", style = MaterialTheme.typography.titleMedium)
+                                    Text("Tap to edit slots", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
-                        IconButton(onClick = { pendingDelete = version }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete version", tint = MaterialTheme.colorScheme.error)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = hapticClick { onDuplicateVersion(version.id) }) {
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Duplicate timetable version",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = hapticClick { pendingDelete = version }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete version",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }

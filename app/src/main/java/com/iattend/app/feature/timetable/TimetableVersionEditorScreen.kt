@@ -169,7 +169,14 @@ fun TimetableVersionEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit: From ${state.effectiveFrom}", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                title = {
+                    val titleText = when {
+                        viewModel.isCopy -> "Duplicate Timetable"
+                        viewModel.isNew -> "New Timetable"
+                        else -> "Edit: From ${state.effectiveFrom}"
+                    }
+                    Text(titleText, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                },
                 navigationIcon = {
                     SquircleIconButton(Icons.Default.Close, contentDescription = "Close", onClick = guardedBack)
                 }

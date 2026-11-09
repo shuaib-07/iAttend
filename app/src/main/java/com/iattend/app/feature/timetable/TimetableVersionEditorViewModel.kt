@@ -94,6 +94,7 @@ class TimetableVersionEditorViewModel @Inject constructor(
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<TimetableVersionEditorRoute>()
     val isNew: Boolean get() = route.versionId == 0L
+    val isCopy: Boolean get() = isNew && route.copyFromVersionId != null
 
     private val _state = MutableStateFlow(TimetableVersionEditorState())
     val state: StateFlow<TimetableVersionEditorState> = _state.asStateFlow()
@@ -130,14 +131,24 @@ class TimetableVersionEditorViewModel @Inject constructor(
                     }
                     DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
                 }
+            } else if (route.copyFromVersionId != null) {
+                timetableVersionDao.getById(route.copyFromVersionId)?.let {
+                    label = if (it.label.isNullOrBlank()) "" else "${it.label} (Copy)"
+                    effectiveFrom = if (it.effectiveFrom.isAfter(LocalDate.now())) it.effectiveFrom.plusDays(1) else LocalDate.now()
+                }
+                slots = timetableSlotDao.getForVersionOnce(route.copyFromVersionId).map {
+                    val localId = nextLocalId++
+                    DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
+                }
             }
             val initDay = route.initialDayOfWeek?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
-            initialSnapshot = Snapshot(label, effectiveFrom, slots)
+            initialSnapshot = if (isCopy) Snapshot("", LocalDate.MIN, emptyList()) else Snapshot(label, effectiveFrom, slots)
             _state.value = _state.value.copy(
                 label = label,
                 effectiveFrom = effectiveFrom,
                 slots = slots,
                 subjects = subjects,
+                hasOverlap = computeOverlap(slots),
                 initialDayOfWeek = initDay,
                 initialEditSlotLocalId = initialSlotLocalId
             )

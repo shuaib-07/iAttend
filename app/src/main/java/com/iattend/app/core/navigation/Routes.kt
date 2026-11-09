@@ -18,7 +18,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class TimetableVersionEditorRoute(
     val versionId: Long = 0L, // 0 = new
     val initialDayOfWeek: String? = null,
-    val initialSlotId: Long? = null
+    val initialSlotId: Long? = null,
+    val copyFromVersionId: Long? = null
 )
 @Serializable data class BackdatedFillRoute(val versionId: Long)
 @Serializable object HolidayListRoute

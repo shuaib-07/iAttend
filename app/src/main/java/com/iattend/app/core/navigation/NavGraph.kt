@@ -276,7 +276,14 @@ fun AppNavHost(startDestination: Any) {
                         }
                         composable<SubjectListRoute> { SubjectListScreen(onBack = { navController.popBackStack() }, onAddSubject = { navController.navigate(SubjectEditorRoute()) }, onEditSubject = { id -> navController.navigate(SubjectEditorRoute(id)) }) }
                         composable<SubjectEditorRoute> { SubjectEditorScreen(onBack = { navController.popBackStack() }) }
-                        composable<TimetableVersionListRoute> { TimetableVersionListScreen(onBack = { navController.popBackStack() }, onAddVersion = { navController.navigate(TimetableVersionEditorRoute()) }, onEditVersion = { id -> navController.navigate(TimetableVersionEditorRoute(id)) }) }
+                        composable<TimetableVersionListRoute> {
+                            TimetableVersionListScreen(
+                                onBack = { navController.popBackStack() },
+                                onAddVersion = { navController.navigate(TimetableVersionEditorRoute()) },
+                                onEditVersion = { id -> navController.navigate(TimetableVersionEditorRoute(id)) },
+                                onDuplicateVersion = { id -> navController.navigate(TimetableVersionEditorRoute(copyFromVersionId = id)) }
+                            )
+                        }
                         composable<TimetableVersionEditorRoute> { TimetableVersionEditorScreen(onBack = { navController.popBackStack() }, onBackdatedFill = { versionId -> navController.navigate(BackdatedFillRoute(versionId)) { popUpTo<TimetableVersionListRoute>() } }) }
                         composable<BackdatedFillRoute> { BackdatedFillScreen(onDone = { navController.navigate(HomeRoute) { popUpTo(0) } }) }
                         composable<HolidayListRoute> { HolidayListScreen(onBack = { navController.popBackStack() }) }
