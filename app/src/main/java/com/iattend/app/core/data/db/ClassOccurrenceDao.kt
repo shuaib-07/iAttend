@@ -83,4 +83,11 @@ interface ClassOccurrenceDao {
 
     @Query("UPDATE class_occurrences SET roomNumber = :room WHERE subjectId = :subjectId AND status = 'UNMARKED' AND roomNumberOverridden = 0")
     suspend fun updateInheritedRooms(subjectId: Long, room: String?)
+
+    // Prune stale occurrences that fall beyond a shortened semester/subject end date.
+    // Only UNMARKED SCHEDULED rows are removed; already-marked attendance is never touched.
+    @Query(
+        "DELETE FROM class_occurrences WHERE status = 'UNMARKED' AND source = 'SCHEDULED' AND date > :horizon AND subjectId IN (:subjectIds)"
+    )
+    suspend fun deleteUnmarkedScheduledAfterDateForSubjects(horizon: LocalDate, subjectIds: List<Long>)
 }

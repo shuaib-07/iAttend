@@ -110,6 +110,11 @@ class ReleaseRepository @Inject constructor(
     fun getBuiltInReleaseNotes(): List<FeatureHighlight> {
         return listOf(
             FeatureHighlight(
+                category = "BUG FIX",
+                title = "Semester End Date Fix",
+                description = "Fixed an issue where shortening a semester's end date still tracked attendance for occurrences beyond the new end date. Those extra classes are now correctly removed."
+            ),
+            FeatureHighlight(
                 category = "NEW FEATURE",
                 title = "Duplicate Timetable Versions",
                 description = "Clone existing timetable schedules with a single tap to easily set up new clinical rotations or mid-semester updates without re-entering all your classes."
@@ -123,11 +128,6 @@ class ReleaseRepository @Inject constructor(
                 category = "NEW FEATURE",
                 title = "Smart Bunk Calculator & Simulator",
                 description = "Interactive What-If simulation with attendance steppers, target goal calculator, and a 14-day Bunk Planner that recommends long holiday breaks and protects exam days."
-            ),
-            FeatureHighlight(
-                category = "NEW FEATURE",
-                title = "Header Timetable Switcher",
-                description = "Switch between different semesters and timetables instantly from the top header right next to notifications across Calendar and all screens."
             )
         )
     }

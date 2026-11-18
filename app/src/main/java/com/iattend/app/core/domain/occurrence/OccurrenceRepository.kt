@@ -157,6 +157,14 @@ class OccurrenceRepository @Inject constructor(
                 classOccurrenceDao.delete(occ)
             }
 
+            // Prune any unmarked occurrences that now fall beyond the (possibly shortened)
+            // semester horizon. The window-delete below only covers start..horizon, so without
+            // this call stale rows past the new end date would silently survive.
+            classOccurrenceDao.deleteUnmarkedScheduledAfterDateForSubjects(
+                horizon = horizon,
+                subjectIds = subjectIds.toList()
+            )
+
             classOccurrenceDao.deleteUnmarkedScheduledForSubjectsExcluding(
                 from = start,
                 to = horizon,
