@@ -28,14 +28,19 @@
 <div align="center">
   <table border="0" cellpadding="0" cellspacing="2" style="border-collapse: collapse;">
     <tr style="border: none;">
-      <td width="32%" style="border: none; padding: 2px;"><img src="screenshots/1.png" alt="Track Attendance"></td>
-      <td width="32%" style="border: none; padding: 2px;"><img src="screenshots/2.png" alt="Timetable Management"></td>
-      <td width="32%" style="border: none; padding: 2px;"><img src="screenshots/3.png" alt="Interactive Calendar"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/1.png" alt="Attendance Dashboard"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/2.png" alt="Daily Timetable & Classes"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/3.png" alt="Smart Bunk Calculator"></td>
     </tr>
     <tr style="border: none;">
-      <td width="32%" style="border: none; padding: 2px;"><img src="screenshots/4.png" alt="Analytics & Insights"></td>
-      <td width="32%" style="border: none; padding: 2px;"><img src="screenshots/5.png" alt="Home Screen Widget"></td>
-      <td width="32%" style="border: none; padding: 2px;"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/4.png" alt="Analytics & Insights"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/5.png" alt="Subject Detail & Heatmap"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/6.png" alt="Schedule & Timetable Manager"></td>
+    </tr>
+    <tr style="border: none;">
+      <td width="33%" style="border: none; padding: 2px;"></td>
+      <td width="33%" style="border: none; padding: 2px;"><img src="screenshots/7.png" alt="Material You Themes & Profile"></td>
+      <td width="33%" style="border: none; padding: 2px;"></td>
     </tr>
   </table>
 </div>
