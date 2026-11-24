@@ -110,24 +110,24 @@ class ReleaseRepository @Inject constructor(
     fun getBuiltInReleaseNotes(): List<FeatureHighlight> {
         return listOf(
             FeatureHighlight(
-                category = "BUG FIX",
-                title = "Semester End Date Fix",
-                description = "Fixed an issue where shortening a semester's end date still tracked attendance for occurrences beyond the new end date. Those extra classes are now correctly removed."
+                category = "NEW FEATURE",
+                title = "Home Screen Exam Tracker",
+                description = "Track upcoming exams for the next 7 days right on your home screen with countdown badges (\"Tomorrow\", \"In 3d\") and direct quick-action chips to record them as Attempted or Missed. Past un-entered exams prompt you automatically."
             ),
             FeatureHighlight(
                 category = "NEW FEATURE",
-                title = "Duplicate Timetable Versions",
-                description = "Clone existing timetable schedules with a single tap to easily set up new clinical rotations or mid-semester updates without re-entering all your classes."
+                title = "Attendance Exemptions",
+                description = "Turn off attendance weightage for non-credit hours (like Library, Seminar, or Mentor sessions) in recurring timetable slots, extra revision classes, or individual calendar days so they don't impact your percentage."
             ),
             FeatureHighlight(
-                category = "CRITICAL FIX",
-                title = "Black Screen Display Fix",
-                description = "Fixed a GPU shader bug on Samsung and Mali-powered Android 14 devices where an invalid RenderEffect runtime shader caused the screen content to render pure black."
+                category = "IMPROVEMENT",
+                title = "Exam Period & Lifecycle",
+                description = "Semesters no longer prematurely archive the moment classes stop. Your workspace stays active through finals with a dedicated \"Exam Period\" badge, and only concludes when you switch to a new semester."
             ),
             FeatureHighlight(
-                category = "NEW FEATURE",
-                title = "Smart Bunk Calculator & Simulator",
-                description = "Interactive What-If simulation with attendance steppers, target goal calculator, and a 14-day Bunk Planner that recommends long holiday breaks and protects exam days."
+                category = "IMPROVEMENT",
+                title = "Revision & Extra Classes",
+                description = "Extra revision lectures and practical sessions held during exam week past your nominal class end date now properly count toward your attendance statistics."
             )
         )
     }
