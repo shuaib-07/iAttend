@@ -9,10 +9,11 @@ import java.time.YearMonth
 /** Used by the Home heatmap plus calendar-day attendance summaries. */
 enum class DaySummary { NONE, PENDING, ALL_PRESENT, HAS_ABSENT }
 
-/** Attendance rate for the selected month, excluding unmarked and cancelled classes. */
+/** Attendance rate for the selected month, excluding unmarked, cancelled, and non-attendance classes. */
 internal fun attendancePercentageForMonth(occurrences: List<ClassOccurrence>, month: YearMonth): Float? {
     val marked = occurrences.filter {
         YearMonth.from(it.date) == month &&
+            it.affectsAttendance &&
             (it.status == OccurrenceStatus.PRESENT || it.status == OccurrenceStatus.ABSENT)
     }
     val total = marked.sumOf { it.classCount }
@@ -29,10 +30,14 @@ internal fun attendanceStatusForDay(
     rows: List<ClassOccurrence>,
     today: LocalDate,
     now: LocalTime
-): OccurrenceStatus? = when {
-    rows.any { it.status == OccurrenceStatus.UNMARKED && isPastOccurrence(it, today, now) } -> OccurrenceStatus.UNMARKED
-    rows.any { it.status == OccurrenceStatus.ABSENT } -> OccurrenceStatus.ABSENT
-    rows.any { it.status == OccurrenceStatus.PRESENT } -> OccurrenceStatus.PRESENT
-    rows.any { it.status == OccurrenceStatus.CANCELLED } -> OccurrenceStatus.CANCELLED
-    else -> null
+): OccurrenceStatus? {
+    val eligible = rows.filter { it.affectsAttendance }
+    val targetRows = if (eligible.isNotEmpty()) eligible else rows
+    return when {
+        targetRows.any { it.status == OccurrenceStatus.UNMARKED && isPastOccurrence(it, today, now) } -> OccurrenceStatus.UNMARKED
+        targetRows.any { it.status == OccurrenceStatus.ABSENT } -> OccurrenceStatus.ABSENT
+        targetRows.any { it.status == OccurrenceStatus.PRESENT } -> OccurrenceStatus.PRESENT
+        targetRows.any { it.status == OccurrenceStatus.CANCELLED } -> OccurrenceStatus.CANCELLED
+        else -> null
+    }
 }

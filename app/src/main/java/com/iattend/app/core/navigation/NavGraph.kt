@@ -197,7 +197,8 @@ fun AppNavHost(startDestination: Any) {
                         composable<HomeRoute> {
                             HomeScreen(
                                 onSubjectClick = { id -> navController.navigate(SubjectDetailRoute(id)) },
-                                onOpenCalendar = { date -> navController.navigate(CalendarRoute(date.toString())) { launchSingleTop = true } }
+                                onOpenCalendar = { date -> navController.navigate(CalendarRoute(date.toString())) { launchSingleTop = true } },
+                                onAssessmentClick = { subjectId, assessmentId -> navController.navigate(AssessmentEditorRoute(subjectId, assessmentId)) }
                             )
                         }
                         composable<SubjectDetailRoute> {
@@ -340,7 +341,9 @@ fun AppNavHost(startDestination: Any) {
             },
             onToggleArchive = { sem -> semesterViewModel.toggleArchive(sem) },
             onDelete = { id -> semesterViewModel.deleteSemester(id) },
-            onDismiss = { showSemesterSheet = false }
+            onDismiss = { showSemesterSheet = false },
+            examPeriodSemesterIds = semesterState.examPeriodSemesterIds,
+            currentSemesterId = semesterState.currentSemesterId
         )
     }
 

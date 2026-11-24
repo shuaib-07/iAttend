@@ -131,18 +131,11 @@ fun BunkSimulatorBottomSheet(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    Column {
-                        Text(
-                            text = "Smart Bunk Simulator",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Simulate attendance & plan safe bunks",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Bunk simulator",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 SquircleIconButton(
@@ -268,7 +261,7 @@ private fun HeroProjectionCard(
             ) {
                 Column {
                     Text(
-                        text = "PROJECTED ATTENDANCE",
+                        text = "Projected attendance",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -361,13 +354,13 @@ private fun HeroProjectionCard(
                     Icon(badgeIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(20.dp))
                     Text(
                         text = when (displayResult.status) {
-                            BunkStatus.COMFORTABLY_SAFE -> "Comfortably safe! You can safely skip ${displayResult.safeSkipsNow} class${if (displayResult.safeSkipsNow == 1) "" else "es"} and remain above your ${displayResult.targetPercentage.toInt()}% goal."
+                            BunkStatus.COMFORTABLY_SAFE -> "You can miss ${displayResult.safeSkipsNow} class${if (displayResult.safeSkipsNow == 1) "" else "es"} and stay above ${displayResult.targetPercentage.toInt()}%."
                             BunkStatus.CAUTION_BORDERLINE -> if (displayResult.safeSkipsNow == 0) {
-                                "Caution: Next absent drops you below your ${displayResult.targetPercentage.toInt()}% goal!"
+                                "Missing the next class drops you below ${displayResult.targetPercentage.toInt()}%."
                             } else {
-                                "Caution: You can only skip ${displayResult.safeSkipsNow} more class before falling below target."
+                                "You can miss ${displayResult.safeSkipsNow} more class${if (displayResult.safeSkipsNow == 1) "" else "es"} before falling below ${displayResult.targetPercentage.toInt()}%."
                             }
-                            BunkStatus.DANGER_ZONE -> "Debarment danger! Must attend next ${displayResult.classesNeededForTarget} consecutive class${if (displayResult.classesNeededForTarget == 1) "" else "es"} without absence to recover."
+                            BunkStatus.DANGER_ZONE -> "Attend the next ${displayResult.classesNeededForTarget} class${if (displayResult.classesNeededForTarget == 1) "" else "es"} to reach ${displayResult.targetPercentage.toInt()}%."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
@@ -388,7 +381,7 @@ private fun WhatIfStepperTab(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
-            text = "What-if Simulator",
+            text = "What-if simulator",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -427,7 +420,7 @@ private fun WhatIfStepperTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Attendance Goal Target",
+                        text = "Attendance target",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -534,12 +527,12 @@ private fun DayByDayPlannerTab(
         ) {
             Column {
                 Text(
-                    text = "Smart Day Bunk Planner",
+                    text = "Day-by-day planner",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Upcoming 14-day schedule with bridge analysis",
+                    text = "Next 14 days",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

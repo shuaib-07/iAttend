@@ -2,6 +2,7 @@ package com.iattend.app.feature.semester
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.iattend.app.core.data.db.AssessmentDao
 import com.iattend.app.core.data.db.Holiday
 import com.iattend.app.core.data.db.HolidayDao
 import com.iattend.app.core.data.db.RecurringHolidayRule
@@ -28,7 +29,10 @@ data class SemesterUiState(
     val activeSemester: Semester? = null,
     val semesters: List<Semester> = emptyList(),
     val isViewingArchived: Boolean = false,
-    val showWelcomePrompt: Boolean = false
+    val isViewingInactive: Boolean = false,
+    val showWelcomePrompt: Boolean = false,
+    val examPeriodSemesterIds: Set<Long> = emptySet(),
+    val currentSemesterId: Long? = null
 )
 
 @HiltViewModel
@@ -39,6 +43,7 @@ class SemesterViewModel @Inject constructor(
     private val recurringHolidayRuleDao: RecurringHolidayRuleDao,
     private val subjectDao: SubjectDao,
     private val timetableVersionDao: TimetableVersionDao,
+    private val assessmentDao: AssessmentDao,
     private val occurrenceRepository: OccurrenceRepository
 ) : ViewModel() {
 
@@ -47,27 +52,43 @@ class SemesterViewModel @Inject constructor(
     val uiState: StateFlow<SemesterUiState> = combine(
         semesterDao.getAll(),
         settingsRepository.settings,
+        subjectDao.getAll(),
+        assessmentDao.getAll(),
         _welcomeDismissed
-    ) { semesters, settings, dismissed ->
+    ) { semesters, settings, subjects, assessments, dismissed ->
         val today = LocalDate.now()
-        // If activeSemesterId is set, find it; else fall back to the first non-archived or first semester
+        val nonArchived = semesters.filter { !it.isArchived }
+        val currentPrimary = nonArchived.firstOrNull() ?: semesters.firstOrNull()
+
         val active = semesters.find { it.id == settings.activeSemesterId }
-            ?: semesters.firstOrNull { !it.isArchived }
-            ?: semesters.firstOrNull()
+            ?: currentPrimary
 
         // If settings didn't have activeSemesterId, initialize it
         if (active != null && settings.activeSemesterId == null) {
             settingsRepository.setActiveSemesterId(active.id)
         }
 
-        val isArchived = active != null && (active.isArchived || active.endDate.isBefore(today))
+        val subjectsBySemester = subjects.groupBy { it.semesterId }
+        val upcomingExamDatesBySubject = assessments.filter { !it.date.isBefore(today) }.groupBy { it.subjectId }
+
+        val examPeriodIds = semesters.filter { sem ->
+            val semSubjects = subjectsBySemester[sem.id].orEmpty()
+            val hasExamsUpcoming = semSubjects.any { sub -> upcomingExamDatesBySubject[sub.id]?.isNotEmpty() == true }
+            today.isAfter(sem.endDate) && hasExamsUpcoming
+        }.map { it.id }.toSet()
+
+        val isArchived = active?.isArchived == true
+        val isInactive = active != null && !isArchived && currentPrimary != null && active.id != currentPrimary.id
         val showPrompt = !dismissed && semesters.size == 1 && semesters.first().name == "Semester 1" && !settings.onboardingComplete
 
         SemesterUiState(
             activeSemester = active,
             semesters = semesters,
             isViewingArchived = isArchived,
-            showWelcomePrompt = showPrompt
+            isViewingInactive = isInactive,
+            showWelcomePrompt = showPrompt,
+            examPeriodSemesterIds = examPeriodIds,
+            currentSemesterId = currentPrimary?.id
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SemesterUiState())
 

@@ -129,4 +129,56 @@ class AttendanceStatsCalculatorTest {
         assertEquals(2, stats.classesNeeded)
         assertEquals(0, stats.classesCanSkip)
     }
+
+    @Test
+    fun `extra class past tracking end date is included in attendance`() {
+        val subject = Subject(
+            id = 1, code = "X", name = "X", colorArgb = 0, totalMode = TotalMode.COMPUTED,
+            trackingEndDateOverride = LocalDate.of(2026, 2, 1)
+        )
+        val occurrences = listOf(
+            occurrence(LocalDate.of(2026, 1, 15), OccurrenceStatus.PRESENT),
+            ClassOccurrence(
+                subjectId = 1,
+                date = LocalDate.of(2026, 2, 15),
+                startTime = null,
+                endTime = null,
+                status = OccurrenceStatus.PRESENT,
+                source = OccurrenceSource.EXTRA,
+                timetableSlotId = null,
+                classCount = 1
+            )
+        )
+
+        val stats = AttendanceStatsCalculator.compute(
+            subject, occurrences, requiredPercentage = 75f, trackingEndDate = LocalDate.of(2026, 5, 1)
+        )
+
+        assertEquals(2, stats.attended)
+        assertEquals(2, stats.totalOverall)
+    }
+
+    @Test
+    fun `occurrences with affectsAttendance false are excluded`() {
+        val subject = Subject(id = 1, code = "X", name = "X", colorArgb = 0, totalMode = TotalMode.COMPUTED)
+        val occurrences = listOf(
+            occurrence(LocalDate.of(2026, 1, 1), OccurrenceStatus.PRESENT),
+            ClassOccurrence(
+                subjectId = 1,
+                date = LocalDate.of(2026, 1, 2),
+                startTime = null,
+                endTime = null,
+                status = OccurrenceStatus.PRESENT,
+                source = OccurrenceSource.SCHEDULED,
+                timetableSlotId = null,
+                classCount = 1,
+                affectsAttendance = false
+            )
+        )
+
+        val stats = AttendanceStatsCalculator.compute(subject, occurrences, requiredPercentage = 75f, trackingEndDate = LocalDate.of(2026, 5, 1))
+
+        assertEquals(1, stats.attended)
+        assertEquals(1, stats.totalOverall)
+    }
 }

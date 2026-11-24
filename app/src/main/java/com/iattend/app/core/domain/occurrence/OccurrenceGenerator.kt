@@ -84,7 +84,8 @@ object OccurrenceGenerator {
                             classCount = slot.classCount,
                             roomNumber = if (slot.roomNumberOverridden || slot.roomNumber != null) slot.roomNumber else subjectsById[slot.subjectId]?.defaultRoomNumber,
                             classType = slot.classType,
-                            roomNumberOverridden = slot.roomNumberOverridden || slot.roomNumber != null
+                            roomNumberOverridden = slot.roomNumberOverridden || slot.roomNumber != null,
+                            affectsAttendance = slot.affectsAttendance
                         )
                     }
                 }

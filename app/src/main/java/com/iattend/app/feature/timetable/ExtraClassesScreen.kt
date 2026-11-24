@@ -41,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -214,6 +215,27 @@ fun ExtraClassesScreen(
                                         shape = SegmentedButtonDefaults.itemShape(index = index, count = ClassType.entries.size)
                                     ) { Text(type.label) }
                                 }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Count towards attendance", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        if (form.affectsAttendance) "Counts towards percentage" else "Excluded from attendance totals",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = form.affectsAttendance,
+                                    onCheckedChange = viewModel::onAffectsAttendanceChange
+                                )
                             }
 
                             MorphingSaveButton(
@@ -458,17 +480,29 @@ private fun ExtraClassCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (occ.status != OccurrenceStatus.UNMARKED) {
-                        Text(
-                            occ.status.name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = when (occ.status) {
-                                OccurrenceStatus.PRESENT -> MaterialTheme.colorScheme.primary
-                                OccurrenceStatus.ABSENT -> MaterialTheme.colorScheme.error
-                                OccurrenceStatus.CANCELLED -> MaterialTheme.colorScheme.outline
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (!occ.affectsAttendance) {
+                            Text(
+                                "Exempt",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        if (occ.status != OccurrenceStatus.UNMARKED) {
+                            Text(
+                                occ.status.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (occ.status) {
+                                    OccurrenceStatus.PRESENT -> MaterialTheme.colorScheme.primary
+                                    OccurrenceStatus.ABSENT -> MaterialTheme.colorScheme.error
+                                    OccurrenceStatus.CANCELLED -> MaterialTheme.colorScheme.outline
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
                     }
                 }
             }

@@ -63,11 +63,13 @@ fun ScheduleManagerScreen(
             .verticalScroll(rememberScrollState())
             .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
-        if (semesterState.isViewingArchived && semesterState.activeSemester != null) {
+        if ((semesterState.isViewingArchived || semesterState.isViewingInactive) && semesterState.activeSemester != null) {
             ArchivedSemesterBanner(
                 semesterName = semesterState.activeSemester!!.name,
+                isArchived = semesterState.isViewingArchived,
                 onSwitchToCurrent = {
-                    val current = semesterState.semesters.firstOrNull { !it.isArchived && !it.endDate.isBefore(LocalDate.now()) }
+                    val current = semesterState.currentSemesterId?.let { id -> semesterState.semesters.find { it.id == id } }
+                        ?: semesterState.semesters.firstOrNull { !it.isArchived }
                         ?: semesterState.semesters.firstOrNull()
                     if (current != null) semesterViewModel.switchSemester(current.id)
                 },

@@ -182,26 +182,26 @@ object BunkCalculator {
 
             val (recType, reason) = when {
                 hasAssessment -> {
-                    BunkRecommendationType.DO_NOT_BUNK to "Assessment scheduled today (${dayAssessments.first().type}). Mandatory attendance."
+                    BunkRecommendationType.DO_NOT_BUNK to "Assessment scheduled today (${dayAssessments.first().type})."
                 }
                 !canAfford -> {
-                    BunkRecommendationType.DO_NOT_BUNK to "Debarment risk: missing $classCount class${if (classCount > 1) "es" else ""} drops you below your ${targetPercentage.toInt()}% goal."
+                    BunkRecommendationType.DO_NOT_BUNK to "Missing $classCount class${if (classCount > 1) "es" else ""} drops you below ${targetPercentage.toInt()}%."
                 }
                 createsLongWeekend && canAfford -> {
                     val breakDays = if (isFridayBeforeWeekend) "3-day weekend" else "long weekend"
-                    BunkRecommendationType.RECOMMENDED to "Great Long Weekend Bridge: safe to skip $classCount class${if (classCount > 1) "es" else ""} for a continuous $breakDays!"
+                    BunkRecommendationType.RECOMMENDED to "Can miss $classCount class${if (classCount > 1) "es" else ""} for a $breakDays."
                 }
                 isBridge && canAfford -> {
-                    BunkRecommendationType.RECOMMENDED to "Holiday Bridge: connect surrounding off-days into an extended vacation safely."
+                    BunkRecommendationType.RECOMMENDED to "Connects surrounding off-days."
                 }
                 classCount >= 3 -> {
-                    BunkRecommendationType.HIGH_IMPACT to "Heavy Class Day: $classCount classes scheduled. High attendance penalty if skipped."
+                    BunkRecommendationType.HIGH_IMPACT to "$classCount classes scheduled."
                 }
                 classCount == 1 && canAfford -> {
-                    BunkRecommendationType.OPTIONAL_SAFE to "Low Impact Day: only 1 class scheduled. Safe to bunk if you need time off."
+                    BunkRecommendationType.OPTIONAL_SAFE to "1 class scheduled."
                 }
                 else -> {
-                    BunkRecommendationType.OPTIONAL_SAFE to "Safe to bunk: within your available bunk margin."
+                    BunkRecommendationType.OPTIONAL_SAFE to "Within your skip margin."
                 }
             }
 

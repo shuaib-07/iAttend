@@ -40,5 +40,6 @@ data class TimetableSlot(
     val roomNumber: String? = null,
     val classType: ClassType = ClassType.LECTURE,
     /** False inherits Subject.defaultRoomNumber; true uses roomNumber, including explicit blank. */
-    val roomNumberOverridden: Boolean = false
+    val roomNumberOverridden: Boolean = false,
+    val affectsAttendance: Boolean = true
 )

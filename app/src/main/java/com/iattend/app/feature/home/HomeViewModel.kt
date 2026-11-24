@@ -3,26 +3,29 @@ package com.iattend.app.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iattend.app.core.data.db.Assessment
+import com.iattend.app.core.data.db.AssessmentAttemptStatus
 import com.iattend.app.core.data.db.AssessmentDao
 import com.iattend.app.core.data.db.ClassOccurrence
 import com.iattend.app.core.data.db.ClassOccurrenceDao
-import com.iattend.app.core.data.db.Subject
-import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.Semester
 import com.iattend.app.core.data.db.SemesterDao
+import com.iattend.app.core.data.db.Subject
+import com.iattend.app.core.data.db.SubjectDao
 import com.iattend.app.core.datastore.SettingsRepository
 import com.iattend.app.core.domain.stats.AttendanceStatsCalculator
 import com.iattend.app.core.domain.stats.StreakCalculator
+import com.iattend.app.core.notifications.AssessmentReminderScheduler
 import com.iattend.app.feature.calendar.DaySummary
 import com.iattend.app.feature.calendar.isPastOccurrence
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
@@ -67,6 +70,12 @@ data class SemesterAttendanceStat(
     val percentage: Float
 )
 
+data class UpcomingAssessmentItem(
+    val assessment: Assessment,
+    val subject: Subject?,
+    val isOverdue: Boolean
+)
+
 data class HomeState(
     val activeSemester: Semester? = null,
     val allSemestersStats: List<SemesterAttendanceStat> = emptyList(),
@@ -89,6 +98,8 @@ data class HomeState(
     val semesterUnmarked: Int = 0,
     val pastUnmarkedClasses: List<ClassOccurrence> = emptyList(),
     val todaySchedule: List<TodayScheduleItem> = emptyList(),
+    val upcomingAssessments: List<UpcomingAssessmentItem> = emptyList(),
+    val overdueAssessments: List<UpcomingAssessmentItem> = emptyList(),
     val currentStreak: Int = 0,
     val bestStreak: Int = 0,
     val markedOccurrences: List<ClassOccurrence> = emptyList()
@@ -154,7 +165,8 @@ private val refreshMinute = flow {
 class HomeViewModel @Inject constructor(
     subjectDao: SubjectDao,
     classOccurrenceDao: ClassOccurrenceDao,
-    assessmentDao: AssessmentDao,
+    private val assessmentDao: AssessmentDao,
+    private val reminderScheduler: AssessmentReminderScheduler,
     settingsRepository: SettingsRepository,
     semesterDao: SemesterDao
 ) : ViewModel() {
@@ -263,6 +275,29 @@ class HomeViewModel @Inject constructor(
         val todaySchedule = (classItems + independentAssessmentItems)
             .sortedWith(compareBy({ it.time ?: LocalTime.MIN }, { if (it is TodayScheduleItem.ClassItem) 0 else 1 }))
 
+        val upcomingWindowEnd = today.plusDays(7)
+        val upcomingAssessments = semesterAssessments
+            .filter { !it.date.isBefore(today) && !it.date.isAfter(upcomingWindowEnd) && it.attemptStatus == AssessmentAttemptStatus.PENDING }
+            .sortedWith(compareBy({ it.date }, { it.startTime }))
+            .map { a ->
+                UpcomingAssessmentItem(
+                    assessment = a,
+                    subject = semesterSubjects.find { it.id == a.subjectId },
+                    isOverdue = false
+                )
+            }
+
+        val overdueAssessments = semesterAssessments
+            .filter { it.date.isBefore(today) && it.attemptStatus == AssessmentAttemptStatus.PENDING }
+            .sortedWith(compareByDescending<Assessment> { it.date }.thenBy { it.startTime })
+            .map { a ->
+                UpcomingAssessmentItem(
+                    assessment = a,
+                    subject = semesterSubjects.find { it.id == a.subjectId },
+                    isOverdue = true
+                )
+            }
+
         val streakStats = StreakCalculator.compute(semesterOccurrences)
 
         val allSemestersStats = semesters.map { sem ->
@@ -308,9 +343,27 @@ class HomeViewModel @Inject constructor(
             semesterUnmarked = periodAttendance.unmarked,
             pastUnmarkedClasses = periodAttendance.pastUnmarkedClasses,
             todaySchedule = todaySchedule,
+            upcomingAssessments = upcomingAssessments,
+            overdueAssessments = overdueAssessments,
             currentStreak = streakStats.currentStreak,
             bestStreak = streakStats.bestStreak,
             markedOccurrences = markedOccurrences
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeState())
+
+    fun updateAssessmentAttemptStatus(assessmentId: Long, newStatus: AssessmentAttemptStatus) {
+        viewModelScope.launch {
+            val assessment = assessmentDao.getByIdOnce(assessmentId) ?: return@launch
+            val updated = assessment.copy(
+                attemptStatus = newStatus,
+                isAttemptOverridden = true,
+                obtainedMarks = if (newStatus == AssessmentAttemptStatus.MISSED) 0.0 else assessment.obtainedMarks,
+                needsRescheduling = if (newStatus == AssessmentAttemptStatus.ATTEMPTED) false else assessment.needsRescheduling
+            )
+            assessmentDao.update(updated)
+            if (newStatus == AssessmentAttemptStatus.ATTEMPTED) {
+                reminderScheduler.cancel(assessment.id)
+            }
+        }
+    }
 }

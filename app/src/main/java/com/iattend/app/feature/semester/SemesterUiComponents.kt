@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Unarchive
@@ -103,11 +104,25 @@ fun SemesterSelectorChip(
 fun ArchivedSemesterBanner(
     semesterName: String,
     onSwitchToCurrent: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isArchived: Boolean = true
 ) {
+    val containerColor = if (isArchived) {
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val contentColor = if (isArchived) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val icon = if (isArchived) Icons.Default.Archive else Icons.Default.History
+    val message = if (isArchived) "Viewing archived: $semesterName" else "Viewing past semester: $semesterName"
+
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+        color = containerColor,
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
@@ -123,20 +138,20 @@ fun ArchivedSemesterBanner(
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Archive,
+                    imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    tint = contentColor,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    text = "Viewing archived: $semesterName",
+                    text = message,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = contentColor,
                     fontWeight = FontWeight.Medium
                 )
             }
             TextButton(onClick = onSwitchToCurrent) {
-                Text("Switch", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text("Switch to Active", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -152,7 +167,9 @@ fun SemesterSwitcherBottomSheet(
     onEdit: (Semester) -> Unit,
     onToggleArchive: (Semester) -> Unit,
     onDelete: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    examPeriodSemesterIds: Set<Long> = emptySet(),
+    currentSemesterId: Long? = null
 ) {
     val sheetState = rememberModalBottomSheetState()
     var semesterToDelete by remember { mutableStateOf<Semester?>(null) }
@@ -195,13 +212,18 @@ fun SemesterSwitcherBottomSheet(
                     val statusText = when {
                         semester.isArchived -> "Archived"
                         today.isBefore(semester.startDate) -> "Upcoming"
-                        today.isAfter(semester.endDate) -> "Ended"
-                        else -> "Current"
+                        semester.id in examPeriodSemesterIds -> "Exam Period"
+                        semester.id == (currentSemesterId ?: activeSemester?.id) -> {
+                            if (!today.isAfter(semester.endDate)) "Current" else "Active"
+                        }
+                        today.isAfter(semester.endDate) -> "Concluded"
+                        else -> "Inactive"
                     }
                     val statusColor = when (statusText) {
-                        "Current" -> MaterialTheme.colorScheme.primary
-                        "Archived", "Ended" -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.tertiary
+                        "Current", "Active" -> MaterialTheme.colorScheme.primary
+                        "Exam Period" -> MaterialTheme.colorScheme.tertiary
+                        "Upcoming" -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.outline
                     }
 
                     Card(

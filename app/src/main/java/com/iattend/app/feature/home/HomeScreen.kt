@@ -22,9 +22,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
+import com.iattend.app.core.data.db.Assessment
 import com.iattend.app.core.data.db.AssessmentAttemptStatus
-import com.iattend.app.core.data.db.AssessmentType
 import com.iattend.app.core.data.db.OccurrenceStatus
 import com.iattend.app.core.data.db.Semester
 import com.iattend.app.feature.semester.ArchivedSemesterBanner
@@ -69,6 +74,7 @@ import java.time.LocalDate
 fun HomeScreen(
     onSubjectClick: (Long) -> Unit,
     onOpenCalendar: (LocalDate) -> Unit,
+    onAssessmentClick: ((Long, Long) -> Unit)? = null,
     viewModel: HomeViewModel = hiltViewModel(),
     semesterViewModel: SemesterViewModel = hiltViewModel()
 ) {
@@ -95,11 +101,13 @@ fun HomeScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = LocalNavigationContentPadding.current)
     ) {
         item {
-            if (semesterState.isViewingArchived && semesterState.activeSemester != null) {
+            if ((semesterState.isViewingArchived || semesterState.isViewingInactive) && semesterState.activeSemester != null) {
                 ArchivedSemesterBanner(
                     semesterName = semesterState.activeSemester!!.name,
+                    isArchived = semesterState.isViewingArchived,
                     onSwitchToCurrent = {
-                        val current = semesterState.semesters.firstOrNull { !it.isArchived && !it.endDate.isBefore(LocalDate.now()) }
+                        val current = semesterState.currentSemesterId?.let { id -> semesterState.semesters.find { it.id == id } }
+                            ?: semesterState.semesters.firstOrNull { !it.isArchived }
                             ?: semesterState.semesters.firstOrNull()
                         if (current != null) semesterViewModel.switchSemester(current.id)
                     },
@@ -119,6 +127,22 @@ fun HomeScreen(
                 items = state.todaySchedule,
                 onItemClick = onOpenCalendar
             )
+
+            if (state.overdueAssessments.isNotEmpty() || state.upcomingAssessments.isNotEmpty()) {
+                UpcomingExamsSection(
+                    overdueExams = state.overdueAssessments,
+                    upcomingExams = state.upcomingAssessments,
+                    onAttemptStatusChange = viewModel::updateAssessmentAttemptStatus,
+                    onExamClick = { assessment ->
+                        if (onAssessmentClick != null) {
+                            onAssessmentClick(assessment.subjectId, assessment.id)
+                        } else {
+                            onOpenCalendar(assessment.date)
+                        }
+                    },
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+            }
 
             Text("Attendance", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             Text(
@@ -649,6 +673,247 @@ private fun AssessmentScheduleCard(
                         MaterialTheme.colorScheme.primary
                     else
                         MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+private fun formatExamCountdown(date: LocalDate, today: LocalDate): String {
+    val days = java.time.temporal.ChronoUnit.DAYS.between(today, date)
+    return when {
+        days < -1 -> "${-days}d ago"
+        days == -1L -> "Yesterday"
+        days == 0L -> "Today"
+        days == 1L -> "Tomorrow"
+        else -> "In ${days}d"
+    }
+}
+
+@Composable
+private fun UpcomingExamsSection(
+    overdueExams: List<UpcomingAssessmentItem>,
+    upcomingExams: List<UpcomingAssessmentItem>,
+    onAttemptStatusChange: (Long, AssessmentAttemptStatus) -> Unit,
+    onExamClick: (Assessment) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val today = LocalDate.now()
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (overdueExams.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            "Unmarked past exams (${overdueExams.size})",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    overdueExams.forEach { item ->
+                        UpcomingExamCard(
+                            item = item,
+                            today = today,
+                            onAttemptStatusChange = onAttemptStatusChange,
+                            onClick = { onExamClick(item.assessment) }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (upcomingExams.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Upcoming exams",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    "${upcomingExams.size} scheduled",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            upcomingExams.forEach { item ->
+                UpcomingExamCard(
+                    item = item,
+                    today = today,
+                    onAttemptStatusChange = onAttemptStatusChange,
+                    onClick = { onExamClick(item.assessment) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpcomingExamCard(
+    item: UpcomingAssessmentItem,
+    today: LocalDate,
+    onAttemptStatusChange: (Long, AssessmentAttemptStatus) -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val assessment = item.assessment
+    val subject = item.subject
+    val timeStr = formatTime(assessment.startTime, LocalTimeFormat.current)
+    val countdown = formatExamCountdown(assessment.date, today)
+    val haptics = LocalHapticFeedback.current
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (item.isOverdue) {
+                MaterialTheme.colorScheme.surface
+            } else {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(
+                            color = subject?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary,
+                            shape = CircleShape
+                        )
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            assessment.type.name,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            assessment.title ?: assessment.type.name,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                    val datePart = buildString {
+                        append(formatDateShort(assessment.date))
+                        if (timeStr.isNotBlank()) {
+                            append(", ")
+                            append(timeStr)
+                        }
+                    }
+                    val marksPart = assessment.totalMarks?.let { marks ->
+                        val formattedMarks = if (marks % 1.0 == 0.0) marks.toInt().toString() else marks.toString()
+                        " ($formattedMarks marks)"
+                    }.orEmpty()
+                    Text(
+                        buildString {
+                            subject?.name?.let {
+                                append(it)
+                                append(" – ")
+                            }
+                            append(datePart)
+                            append(marksPart)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (item.isOverdue) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer,
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    Text(
+                        text = countdown,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (item.isOverdue) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // Quick actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = assessment.attemptStatus == AssessmentAttemptStatus.MISSED,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val next = if (assessment.attemptStatus == AssessmentAttemptStatus.MISSED)
+                            AssessmentAttemptStatus.PENDING else AssessmentAttemptStatus.MISSED
+                        onAttemptStatusChange(assessment.id, next)
+                    },
+                    label = {
+                        Text(
+                            "Missed",
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = assessment.attemptStatus == AssessmentAttemptStatus.ATTEMPTED,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val next = if (assessment.attemptStatus == AssessmentAttemptStatus.ATTEMPTED)
+                            AssessmentAttemptStatus.PENDING else AssessmentAttemptStatus.ATTEMPTED
+                        onAttemptStatusChange(assessment.id, next)
+                    },
+                    label = {
+                        Text(
+                            "Attempted",
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }

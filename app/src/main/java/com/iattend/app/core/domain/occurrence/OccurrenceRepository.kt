@@ -116,7 +116,7 @@ class OccurrenceRepository @Inject constructor(
 
         val markedOrProtectedKeys = existing
             .filterNot { it.id in deletedHolidayIds || it.id in purgedDeletedIds }
-            .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds) && it.source == OccurrenceSource.SCHEDULED }
+            .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds || !it.affectsAttendance) && it.source == OccurrenceSource.SCHEDULED }
             .map { Triple(it.date, it.subjectId, it.startTime) }
             .toSet()
 
@@ -213,7 +213,7 @@ class OccurrenceRepository @Inject constructor(
 
         val markedOrProtectedKeys = existing
             .filterNot { it.id in deletedHolidayIds || it.id in purgedDeletedIds }
-            .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds) && it.source == OccurrenceSource.SCHEDULED }
+            .filter { (it.status != OccurrenceStatus.UNMARKED || it.id in linkedOccurrenceIds || !it.affectsAttendance) && it.source == OccurrenceSource.SCHEDULED }
             .map { Triple(it.date, it.subjectId, it.startTime) }
             .toSet()
 

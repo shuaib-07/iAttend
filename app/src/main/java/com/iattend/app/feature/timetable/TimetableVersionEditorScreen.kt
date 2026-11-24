@@ -37,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -92,6 +93,7 @@ fun TimetableVersionEditorScreen(
     var confirmClearDefault by remember { mutableStateOf(false) }
     var classCount by remember { mutableStateOf("1") }
     var classType by remember { mutableStateOf(ClassType.LECTURE) }
+    var affectsAttendance by remember { mutableStateOf(true) }
     var editingLocalId by remember { mutableStateOf<Int?>(null) }
     var formTouched by remember { mutableStateOf(false) }
     var showSlotsSheet by remember { mutableStateOf(false) }
@@ -134,6 +136,7 @@ fun TimetableVersionEditorScreen(
         setAsDefaultRoom = slot.setSubjectDefaultRoom
         classCount = slot.classCount.toString()
         classType = slot.classType
+        affectsAttendance = slot.affectsAttendance
         formTouched = false
     }
     var isSavingTimetable by remember { mutableStateOf(false) }
@@ -255,6 +258,7 @@ fun TimetableVersionEditorScreen(
                                 setAsDefaultRoom = false
                                 classCount = "1"
                                 classType = ClassType.LECTURE
+                                affectsAttendance = true
                                 formTouched = false
                             }) { Text("Cancel edit") }
                         }
@@ -314,16 +318,36 @@ fun TimetableVersionEditorScreen(
                         label = { Text("Counts as N classes") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Count towards attendance", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                if (affectsAttendance) "Counts towards percentage" else "Excluded from attendance totals",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = affectsAttendance,
+                            onCheckedChange = { affectsAttendance = it; formTouched = true }
+                        )
+                    }
                     MorphingSaveButton(
                         onClick = {
                             selectedSubjectId?.let {
                                 val editing = editingLocalId
                                 val nextRoom = if (setAsDefaultRoom) room else findEffectiveRoom(selectedSubjectId, editing).orEmpty()
                                 if (editing != null) {
-                                    viewModel.updateSlot(editing, it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType, roomOverridden, setAsDefaultRoom)
+                                    viewModel.updateSlot(editing, it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType, roomOverridden, setAsDefaultRoom, affectsAttendance)
                                     editingLocalId = null
                                 } else {
-                                    viewModel.addSlot(it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType, roomOverridden, setAsDefaultRoom)
+                                    viewModel.addSlot(it, selectedDay, startTime, endTime, classCount.toIntOrNull() ?: 1, room, classType, roomOverridden, setAsDefaultRoom, affectsAttendance)
                                     startTime = endTime
                                 }
                                 tutorialController?.reportSignal(TutorialSignal.SLOT_SAVED)
@@ -332,6 +356,7 @@ fun TimetableVersionEditorScreen(
                                 setAsDefaultRoom = false
                                 classCount = "1"
                                 classType = ClassType.LECTURE
+                                affectsAttendance = true
                                 formTouched = false
                                 slotSaved = true
                             }
@@ -382,6 +407,7 @@ fun TimetableVersionEditorScreen(
                 setAsDefaultRoom = slot.setSubjectDefaultRoom
                 classCount = slot.classCount.toString()
                 classType = slot.classType
+                affectsAttendance = slot.affectsAttendance
                 formTouched = true
                 showSlotsSheet = false
             },
@@ -501,6 +527,13 @@ private fun SlotsSheetContent(
                             }
                             val room = (if (slot.roomNumberOverridden) slot.roomNumber else subjectRoom(slot.subjectId))?.takeIf { it.isNotBlank() }
                             Text(room?.let { "Room $it" } ?: "Room not set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (!slot.affectsAttendance) {
+                                Text(
+                                    "Exempt from attendance",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
                         }
                         Row {
                             IconButton(onClick = { onEdit(slot) }) {

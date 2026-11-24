@@ -41,6 +41,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ViewWeek
@@ -56,6 +58,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -175,11 +178,13 @@ fun CalendarScreen(
     ) {
         item(key = "calendar_header") {
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-                if (semesterState.isViewingArchived && semesterState.activeSemester != null) {
+                if ((semesterState.isViewingArchived || semesterState.isViewingInactive) && semesterState.activeSemester != null) {
                     ArchivedSemesterBanner(
                         semesterName = semesterState.activeSemester!!.name,
+                        isArchived = semesterState.isViewingArchived,
                         onSwitchToCurrent = {
-                            val current = semesterState.semesters.firstOrNull { !it.isArchived && !it.endDate.isBefore(LocalDate.now()) }
+                            val current = semesterState.currentSemesterId?.let { id -> semesterState.semesters.find { it.id == id } }
+                                ?: semesterState.semesters.firstOrNull { !it.isArchived }
                                 ?: semesterState.semesters.firstOrNull()
                             if (current != null) semesterViewModel.switchSemester(current.id)
                         },
@@ -482,6 +487,30 @@ fun CalendarScreen(
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Text("Edit Class", style = MaterialTheme.typography.bodyLarge)
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable {
+                            val targetOcc = occ
+                            selectedOccurrenceForMenu = null
+                            viewModel.toggleOccurrenceAttendanceAffects(targetOcc)
+                        }
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = if (occ.affectsAttendance) Icons.Default.Close else Icons.Default.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                    Text(
+                        if (occ.affectsAttendance) "Exempt from attendance" else "Count towards attendance",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
 
                 Row(
@@ -1223,6 +1252,22 @@ private fun TimelineRow(
                                     "Extra",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                        if (!occurrence.affectsAttendance) {
+                            Surface(
+                                shape = MaterialTheme.shapes.extraSmall,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    "Exempt",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     softWrap = false
                                 )

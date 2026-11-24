@@ -73,9 +73,9 @@ fun StreakCards(
         val title = if (type == StreakType.BEST) "Best streak" else "Current streak"
         val icon = if (type == StreakType.BEST) Icons.Filled.LocalFireDepartment else Icons.AutoMirrored.Filled.DirectionsRun
         val description = if (type == StreakType.BEST) {
-            "Your highest attendance streak recorded! It shows the greatest number of consecutive classes attended without any missed classes."
+            "Most consecutive classes attended this term without an absence."
         } else {
-            "Your ongoing attendance streak! It counts how many consecutive classes you've attended up until today. Keep attending classes to grow your streak!"
+            "Consecutive classes attended up to today."
         }
 
         SpringAlertDialog(

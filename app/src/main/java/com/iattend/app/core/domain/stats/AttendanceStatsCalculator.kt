@@ -40,14 +40,15 @@ object AttendanceStatsCalculator {
         val effectiveEndDate = subject.trackingEndDateOverride ?: trackingEndDate
 
         val relevant = occurrences
-            .filter { it.status != OccurrenceStatus.CANCELLED }
+            .filter { it.status != OccurrenceStatus.CANCELLED && it.affectsAttendance }
             .let { rows ->
                 if (subject.totalMode == TotalMode.COMPUTED && effectiveEndDate != null) {
-                    rows.filter { !it.date.isAfter(effectiveEndDate) }
+                    rows.filter { !it.date.isAfter(effectiveEndDate) || it.source == com.iattend.app.core.data.db.OccurrenceSource.EXTRA }
                 } else {
                     rows
                 }
             }
+
         val attended = relevant.filter { it.status == OccurrenceStatus.PRESENT }.sumOf { it.classCount }
         val totalSoFar = relevant
             .filter { it.status == OccurrenceStatus.PRESENT || it.status == OccurrenceStatus.ABSENT }
@@ -57,7 +58,7 @@ object AttendanceStatsCalculator {
             TotalMode.KNOWN -> subject.knownTotalClasses
             // Occurrences are already generated out to the effective end date (OccurrenceRepository
             // walks the horizon out to cover every subject's own override too), so summing the
-            // ones on/before it gives the walked-forward total. No end date yet = nothing to walk to.
+            // ones on/before it (plus any extra classes) gives the walked-forward total.
             TotalMode.COMPUTED -> if (effectiveEndDate != null) relevant.sumOf { it.classCount }.takeIf { it > 0 } else null
             TotalMode.OPEN_ENDED -> null
         }

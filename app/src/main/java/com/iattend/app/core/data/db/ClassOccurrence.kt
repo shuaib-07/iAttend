@@ -49,5 +49,6 @@ data class ClassOccurrence(
     /** Marked occurrences use roomNumber as a historical snapshot; unmarked rows may inherit. */
     val roomNumberOverridden: Boolean = false,
     /** Only meaningful when status == CANCELLED. */
-    val cancelReason: String? = null
+    val cancelReason: String? = null,
+    val affectsAttendance: Boolean = true
 )

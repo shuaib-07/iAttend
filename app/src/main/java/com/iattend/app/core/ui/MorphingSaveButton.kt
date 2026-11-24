@@ -131,7 +131,7 @@ fun MorphingSaveButton(
     pendingLabel: String = "Saving...",
     successLabel: String = "Saved",
     enabled: Boolean = true,
-    showArrow: Boolean = true,
+    showArrow: Boolean = false,
     onSuccess: (() -> Unit)? = null,
     resetAfterMs: Long = 0L,
     shape: Shape = MaterialTheme.shapes.medium
@@ -193,7 +193,7 @@ fun MorphingSaveButton(
     successLabel: String = "Saved",
     enabled: Boolean = true,
     state: MorphingButtonState = MorphingButtonState.IDLE,
-    showArrow: Boolean = true,
+    showArrow: Boolean = false,
     shape: Shape = MaterialTheme.shapes.medium
 ) {
     val haptic = LocalHapticFeedback.current
@@ -284,7 +284,9 @@ fun MorphingSaveButton(
                 )
             }
 
-            Spacer(Modifier.width(8.dp))
+            if (state != MorphingButtonState.IDLE || showArrow) {
+                Spacer(Modifier.width(8.dp))
+            }
 
             AnimatedContent(
                 targetState = state,

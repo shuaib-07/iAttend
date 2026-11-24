@@ -48,7 +48,8 @@ data class DraftSlot(
     val roomNumber: String? = null,
     val classType: ClassType = ClassType.LECTURE,
     val roomNumberOverridden: Boolean = false,
-    val setSubjectDefaultRoom: Boolean = false
+    val setSubjectDefaultRoom: Boolean = false,
+    val affectsAttendance: Boolean = true
 )
 
 sealed class EditorNavEvent {
@@ -129,7 +130,7 @@ class TimetableVersionEditorViewModel @Inject constructor(
                     if (route.initialSlotId != null && it.id == route.initialSlotId) {
                         initialSlotLocalId = localId
                     }
-                    DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
+                    DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden, affectsAttendance = it.affectsAttendance)
                 }
             } else if (route.copyFromVersionId != null) {
                 timetableVersionDao.getById(route.copyFromVersionId)?.let {
@@ -138,7 +139,7 @@ class TimetableVersionEditorViewModel @Inject constructor(
                 }
                 slots = timetableSlotDao.getForVersionOnce(route.copyFromVersionId).map {
                     val localId = nextLocalId++
-                    DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden)
+                    DraftSlot(localId, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.classCount, it.roomNumber, it.classType, it.roomNumberOverridden, affectsAttendance = it.affectsAttendance)
                 }
             }
             val initDay = route.initialDayOfWeek?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
@@ -169,8 +170,8 @@ class TimetableVersionEditorViewModel @Inject constructor(
     fun onLabelChange(v: String) { _state.value = _state.value.copy(label = v) }
     fun onEffectiveFromChange(v: LocalDate) { _state.value = _state.value.copy(effectiveFrom = v) }
 
-    fun addSlot(subjectId: Long, dayOfWeek: DayOfWeek, startTime: LocalTime, endTime: LocalTime, classCount: Int, roomNumber: String?, classType: ClassType, roomNumberOverridden: Boolean, setSubjectDefaultRoom: Boolean) {
-        val slot = DraftSlot(nextLocalId++, subjectId, dayOfWeek, startTime, endTime, classCount, roomNumber?.trim()?.ifBlank { null }.takeIf { roomNumberOverridden }, classType, roomNumberOverridden, setSubjectDefaultRoom)
+    fun addSlot(subjectId: Long, dayOfWeek: DayOfWeek, startTime: LocalTime, endTime: LocalTime, classCount: Int, roomNumber: String?, classType: ClassType, roomNumberOverridden: Boolean, setSubjectDefaultRoom: Boolean, affectsAttendance: Boolean = true) {
+        val slot = DraftSlot(nextLocalId++, subjectId, dayOfWeek, startTime, endTime, classCount, roomNumber?.trim()?.ifBlank { null }.takeIf { roomNumberOverridden }, classType, roomNumberOverridden, setSubjectDefaultRoom, affectsAttendance)
         val existing = _state.value.slots.map {
             if (setSubjectDefaultRoom && it.subjectId == subjectId) it.copy(setSubjectDefaultRoom = false) else it
         }
@@ -188,7 +189,8 @@ class TimetableVersionEditorViewModel @Inject constructor(
         roomNumber: String?,
         classType: ClassType,
         roomNumberOverridden: Boolean,
-        setSubjectDefaultRoom: Boolean
+        setSubjectDefaultRoom: Boolean,
+        affectsAttendance: Boolean = true
     ) {
         val old = _state.value.slots.find { it.localId == localId } ?: return
         val oldSubjectId = old.subjectId ?: return
@@ -201,7 +203,8 @@ class TimetableVersionEditorViewModel @Inject constructor(
             roomNumber = roomNumber?.trim()?.ifBlank { null }.takeIf { roomNumberOverridden },
             classType = classType,
             roomNumberOverridden = roomNumberOverridden,
-            setSubjectDefaultRoom = setSubjectDefaultRoom
+            setSubjectDefaultRoom = setSubjectDefaultRoom,
+            affectsAttendance = affectsAttendance
         )
         val updatedSlots = _state.value.slots.map {
             when {
@@ -291,7 +294,8 @@ class TimetableVersionEditorViewModel @Inject constructor(
                             classCount = slot.classCount,
                             roomNumber = slot.roomNumber,
                             classType = slot.classType,
-                            roomNumberOverridden = slot.roomNumberOverridden
+                            roomNumberOverridden = slot.roomNumberOverridden,
+                            affectsAttendance = slot.affectsAttendance
                         )
                     )
                 }

@@ -48,7 +48,8 @@ data class ExtraClassForm(
     val roomOverridden: Boolean = false,
     val setSubjectDefaultRoom: Boolean = false,
     val classType: ClassType = ClassType.LECTURE,
-    val editingOccurrenceId: Long? = null
+    val editingOccurrenceId: Long? = null,
+    val affectsAttendance: Boolean = true
 )
 
 @HiltViewModel
@@ -173,6 +174,7 @@ class ExtraClassesViewModel @Inject constructor(
     }
     fun setSubjectDefaultRoom(enabled: Boolean) { _form.update { it.copy(setSubjectDefaultRoom = enabled) } }
     fun onClassTypeChange(type: ClassType) { _form.update { it.copy(classType = type) } }
+    fun onAffectsAttendanceChange(enabled: Boolean) { _form.update { it.copy(affectsAttendance = enabled) } }
 
     private var editingOriginal: ClassOccurrence? = null
 
@@ -187,7 +189,8 @@ class ExtraClassesViewModel @Inject constructor(
             room = if (historical) occurrence.roomNumber.orEmpty() else occurrence.roomNumber ?: subjects.value.firstOrNull { it.id == occurrence.subjectId }?.defaultRoomNumber.orEmpty(),
             roomOverridden = occurrence.roomNumberOverridden || historical,
             classType = occurrence.classType,
-            editingOccurrenceId = occurrence.id
+            editingOccurrenceId = occurrence.id,
+            affectsAttendance = occurrence.affectsAttendance
         )
         _editingOriginalForm.value = editForm
         _form.value = editForm
@@ -198,7 +201,7 @@ class ExtraClassesViewModel @Inject constructor(
         editingOriginal = null
         _editingOriginalForm.value = null
         val defaultRoom = subjects.value.firstOrNull { it.id == _form.value.subjectId }?.defaultRoomNumber.orEmpty()
-        _form.update { it.copy(room = defaultRoom, roomOverridden = false, setSubjectDefaultRoom = false, editingOccurrenceId = null) }
+        _form.update { it.copy(room = defaultRoom, roomOverridden = false, setSubjectDefaultRoom = false, editingOccurrenceId = null, affectsAttendance = true) }
     }
 
     fun schedule() {
@@ -225,7 +228,8 @@ class ExtraClassesViewModel @Inject constructor(
                             endTime = f.endTime,
                             roomNumber = roomValue,
                             roomNumberOverridden = f.roomOverridden,
-                            classType = f.classType
+                            classType = f.classType,
+                            affectsAttendance = f.affectsAttendance
                         )
                     )
                 } else {
@@ -240,7 +244,8 @@ class ExtraClassesViewModel @Inject constructor(
                             timetableSlotId = null,
                             roomNumber = roomValue,
                             roomNumberOverridden = f.roomOverridden,
-                            classType = f.classType
+                            classType = f.classType,
+                            affectsAttendance = f.affectsAttendance
                         )
                     )
                 }

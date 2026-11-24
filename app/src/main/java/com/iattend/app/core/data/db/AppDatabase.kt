@@ -240,6 +240,13 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE timetable_slots ADD COLUMN affectsAttendance INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE class_occurrences ADD COLUMN affectsAttendance INTEGER NOT NULL DEFAULT 1")
+    }
+}
+
 @Database(
     entities = [
         Semester::class,
@@ -252,7 +259,7 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
         Assessment::class,
         DeletedClassException::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

@@ -106,7 +106,7 @@ class SubjectDetailViewModel @Inject constructor(
         val mode = params[7] as CalendarViewMode
 
         val semester = subject?.let { s -> semesters.find { it.id == s.semesterId } }
-        val isArchived = semester?.isArchived == true || (semester != null && semester.endDate.isBefore(LocalDate.now()))
+        val isArchived = semester?.isArchived == true
 
         val history = occurrences.sortedBy { it.date }
         val requiredPercentage = subject?.requiredPercentageOverride ?: settings.requiredPercentageDefault

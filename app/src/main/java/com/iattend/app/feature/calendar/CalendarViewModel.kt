@@ -205,6 +205,13 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
+    fun toggleOccurrenceAttendanceAffects(occurrence: ClassOccurrence) {
+        viewModelScope.launch {
+            classOccurrenceDao.update(occurrence.copy(affectsAttendance = !occurrence.affectsAttendance))
+            UpcomingClassesWidget().updateAll(context)
+        }
+    }
+
     fun deleteOccurrence(occurrence: ClassOccurrence, deleteLinkedTests: Boolean = false) {
         viewModelScope.launch {
             occurrenceRepository.deleteSingleOccurrence(occurrence, deleteLinkedTests)
